@@ -1,0 +1,25 @@
+##Package importing
+import pandas as pd
+
+##Table scrapping from web
+
+#Scrap the web html
+simpsons = pd.read_html('https://en.wikipedia.org/wiki/List_of_The_Simpsons_episodes_(seasons_1%E2%80%9320)')
+#Count he tables
+len(simpsons)
+#Index a table
+simpsons[1]
+
+##Table scrapping from web files
+
+#Specify the web file
+df_premier21 = pd.read_csv('https://www.football-data.co.uk/mmz4281/2122/E0.csv')
+#Rename desired columns
+df_premier21 = df_premier21.rename(columns={'Date':'date',
+                                            'HomeTeam':'home_team',
+                                            'AwayTeam':'away_team',
+                                            'FTHG': 'home_goals',
+                                            'FTAG': 'away_goals'})
+df_premier21
+#Display it
+df_premier21
