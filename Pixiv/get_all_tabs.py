@@ -4,7 +4,7 @@ import pyperclip
 import keyboard
 from itertools import count
 
-def get_all_pixiv_tabs():
+def get_all_pixiv_tabs(workflow):
     '''Scans all the tabs of the open browser to get all the urls and qeues the downloads for every one. Requires a maximized pixiv window on the screen'''
     print("Searching for active Pixiv windows...")
     browser_windows = [w for w in gw.getWindowsWithTitle("") if "pixiv" in w.title.lower() and not w.isMinimized]
@@ -32,7 +32,7 @@ def get_all_pixiv_tabs():
         if set_url in urls:
             break
         # Filters undesired urls
-        if set_url.startswith("https://www.pixiv.net/en/artworks") and set_url not in urls:
+        if set_url.startswith(workflow) and set_url not in urls:
             urls.add(set_url)
         # Moves to the next tab
         keyboard.press_and_release("ctrl+tab")

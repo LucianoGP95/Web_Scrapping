@@ -1,5 +1,6 @@
 import subprocess
 import os
+from get_a_single_tab import get_browser_url_specific
 from get_all_tabs import get_all_pixiv_tabs
 from utilities import get_config
 
@@ -26,5 +27,11 @@ def download_images(urls):
         subprocess.run(command)  # Queues all the downloads
 
 # Main script
-pixiv_urls = get_all_pixiv_tabs()
+starting_url = get_browser_url_specific()
+if starting_url.startswith("https://www.pixiv.net/en/artworks"):
+    workflow = "https://www.pixiv.net/en/artworks"
+elif starting_url.startswith("https://www.pixiv.net/en/users"):
+    workflow = "https://www.pixiv.net/en/users"
+pixiv_urls = get_all_pixiv_tabs(workflow)
+
 download_images(pixiv_urls)
