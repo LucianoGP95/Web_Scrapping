@@ -5,7 +5,7 @@ import keyboard
 from itertools import count
 
 def get_all_pixiv_tabs():
-    '''Requires a maximized pixiv window on the screen'''
+    '''Scans all the tabs of the open browser to get all the urls and qeues the downloads for every one. Requires a maximized pixiv window on the screen'''
     print("Searching for active Pixiv windows...")
     browser_windows = [w for w in gw.getWindowsWithTitle("") if "pixiv" in w.title.lower() and not w.isMinimized]
 
@@ -41,5 +41,6 @@ def get_all_pixiv_tabs():
     print(f"URLs detectadas: {urls}")
     return list(urls)
 
-if __name__ == "main":
+# Test script
+if __name__ == "__main__":
     print(get_all_pixiv_tabs())

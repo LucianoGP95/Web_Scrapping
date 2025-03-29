@@ -6,6 +6,7 @@ import keyboard
 from selenium import webdriver
 
 def get_browser_url_specific():
+    '''Gets the url for the open window browser if it is a pixiv gallery. Requires a maximized pixiv window on the screen'''
     # Print all window titles for debugging
     print("Active windows:")
     visible_windows = [w for w in gw.getWindowsWithTitle("") if "pixiv" in w.title and not w.isMinimized]
@@ -29,14 +30,6 @@ def get_browser_url_specific():
 
     return None
 
-# Get the URL(s)
-url = get_browser_url_specific()
-print(f"URL: {url}")
-
-if url:
-    print(f"Current url: {url}")
-    # Execute gallery-dl for each URL
-    command = "gallery-dl", url, "-d", r"D:\1_P\1Art\5 AI"
-    subprocess.run(command)
-else:
-    print("No valid url found.")
+# Test script
+if __name__ == "__main__":
+    print(get_browser_url_specific())

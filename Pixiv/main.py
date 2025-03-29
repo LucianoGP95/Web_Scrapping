@@ -1,9 +1,14 @@
-import time
-import pygetwindow as gw
-import pyperclip
 import subprocess
-import keyboard
+import os
 from get_all_tabs import get_all_pixiv_tabs
+from utilities import get_config
+
+root_path = os.path.dirname(os.path.realpath(__file__))
+os.chdir(root_path)
+config_file = "config.txt"
+config = get_config(config_file)
+directory_path = config.get("directory_path")
+print(directory_path)
 
 def download_images(urls):
     if not urls:
@@ -13,10 +18,12 @@ def download_images(urls):
     print(f"Downloading {len(urls)} tabs...")
 
     for url in urls:
-        command = ["gallery-dl", "-d", r"D:\1_P\1Art\5 AI", url]
+        os.makedirs(directory_path, exist_ok=True)
+        command = ["gallery-dl", "-d", directory_path, url]
         print(f"Download starting: {url}")
-        subprocess.run(command)  # Espera a que termine antes de continuar con la siguiente
+        subprocess.run(command)  # Queues all the downloads
 
-# Ejecutar el proceso
+# Main script
+
 pixiv_urls = get_all_pixiv_tabs()
 download_images(pixiv_urls)
