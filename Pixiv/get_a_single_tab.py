@@ -3,7 +3,6 @@ import pygetwindow as gw
 import pyperclip
 import subprocess
 import keyboard
-from selenium import webdriver
 
 def get_browser_url_specific():
     '''Gets the url for the open window browser if it is a pixiv gallery. Requires a maximized pixiv window on the screen'''
