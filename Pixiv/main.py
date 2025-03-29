@@ -3,12 +3,14 @@ import os
 from get_all_tabs import get_all_pixiv_tabs
 from utilities import get_config
 
+# Path allocation
 root_path = os.path.dirname(os.path.realpath(__file__))
 os.chdir(root_path)
+# Configuration file loading
 config_file = "config.txt"
 config = get_config(config_file)
+# Configuration variables assigment
 directory_path = config.get("directory_path")
-print(directory_path)
 
 def download_images(urls):
     if not urls:
@@ -24,6 +26,5 @@ def download_images(urls):
         subprocess.run(command)  # Queues all the downloads
 
 # Main script
-
 pixiv_urls = get_all_pixiv_tabs()
 download_images(pixiv_urls)
