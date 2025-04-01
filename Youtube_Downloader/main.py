@@ -28,15 +28,16 @@ class DownloaderApp(BaseApp):
         self.url_label = ttk.Label(root, text="Video URL:")
         self.url_label.pack(pady=5)
         
-        self.url_entry = ttk.Entry(root, width=80)
+        self.url_var = tk.StringVar()
+        self.url_entry = ttk.Entry(root, width=80, textvariable=self.url_var)
         self.url_entry.pack(pady=5)
         
         self.title_label = ttk.Label(root, text="Confirm Title:")
         self.title_label.pack(pady=5)
         
-        self.title_str = tk.StringVar()
-        self.title_str.trace_add("write", self._update_title)  # Corrected trace binding
-        self.title_entry = ttk.Entry(root, width=80, textvariable=self.title_str)
+        self.title_var = tk.StringVar()
+        self.title_var.trace_add("write", self._update_title)  # Add trace for updates
+        self.title_entry = ttk.Entry(root, width=80, textvariable=self.title_var)  # Link StringVar to Entry
         self.title_entry.pack(pady=5)
 
         self.folder_label = ttk.Label(root, text="Output Folder:")
@@ -110,6 +111,7 @@ class DownloaderApp(BaseApp):
 
     def _update_title(self, *args):
         # This function will now be triggered every time the title changes
+        self.title_var.set("Hello World")
         print("Title changed:", self.title_str.get())  # Prints the current text in the title entry
 
 class SettingsApp(BaseApp):
