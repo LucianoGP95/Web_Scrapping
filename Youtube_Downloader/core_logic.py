@@ -11,26 +11,28 @@ class Downloader:
         self.info = {}
 
     def sanitize_filename(self, filename):
-        """Remueve caracteres no válidos para nombres de archivos."""
+        """Remove non-valid windows characters."""
         return re.sub(r'[<>:"/\\|?*]', '', filename)
 
-    def download_video(self):
-        """Descarga el video/audio con las opciones configuradas."""
-        # Obtener información sin descargar
+    def download_video(self, progress_callback=None):
+        """Download video/audio with the correct settings."""
         with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
             self.info = ydl.extract_info(self.url, download=False)
-        
-        # Extraer datos del video
+
         video_title = self.sanitize_filename(self.info.get('title', 'unknown'))
         ext = self.info.get('ext', 'mp4')
         filename = os.path.join(self.output_folder, f"{video_title}.{ext}")
 
-        # Verificar si el archivo ya existe
         if os.path.exists(filename):
             print(f"Skipping: {filename} already exists.")
             return
 
-        # Descargar el video/audio
+        def hook(d):
+            if progress_callback and d['status'] == 'downloading':
+                progress_callback(d['_percent_str'])
+
+        self.ydl_opts['progress_hooks'] = [hook]
+
         with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
             ydl.download([self.url])
 
@@ -68,7 +70,7 @@ class Downloader:
             print("Error: No hay información del archivo. ¿Se descargó correctamente?")
             return
 
-        entries = self.info.get('entries', [self.info])  # Manejo de listas y videos individuales
+        entries = self.info.get('entries', [self.info]) 
 
         for entry in entries:
             if not entry:
@@ -80,7 +82,6 @@ class Downloader:
 
             if os.path.exists(filename):
                 try:
-                    # Verificar si el archivo tiene etiquetas ID3
                     try:
                         audio = EasyID3(filename)
                     except ID3NoHeaderError:
