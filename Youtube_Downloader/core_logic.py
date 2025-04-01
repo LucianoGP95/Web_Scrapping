@@ -14,7 +14,7 @@ class Downloader:
         """Remove non-valid windows characters."""
         return re.sub(r'[<>:"/\\|?*]', '', filename)
 
-    def download_video(self, progress_callback=None):
+    def download_video(self):
         """Download video/audio with the correct settings."""
         with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
             self.info = ydl.extract_info(self.url, download=False)
@@ -26,12 +26,6 @@ class Downloader:
         if os.path.exists(filename):
             print(f"Skipping: {filename} already exists.")
             return
-
-        def hook(d):
-            if progress_callback and d['status'] == 'downloading':
-                progress_callback(d['_percent_str'])
-
-        self.ydl_opts['progress_hooks'] = [hook]
 
         with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
             ydl.download([self.url])

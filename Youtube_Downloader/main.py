@@ -1,5 +1,6 @@
 import os
 import tkinter as tk
+import yt_dlp
 from tkinter import ttk, filedialog, messagebox
 from core_logic import Downloader
 
@@ -31,14 +32,6 @@ class DownloaderApp(BaseApp):
         self.url_var = tk.StringVar()
         self.url_entry = ttk.Entry(root, width=80, textvariable=self.url_var)
         self.url_entry.pack(pady=5)
-        
-        self.title_label = ttk.Label(root, text="Confirm Title:")
-        self.title_label.pack(pady=5)
-        
-        self.title_var = tk.StringVar()
-        self.title_var.trace_add("write", self._update_title)  # Add trace for updates
-        self.title_entry = ttk.Entry(root, width=80, textvariable=self.title_var)  # Link StringVar to Entry
-        self.title_entry.pack(pady=5)
 
         self.folder_label = ttk.Label(root, text="Output Folder:")
         self.folder_label.pack(pady=5)
@@ -59,7 +52,7 @@ class DownloaderApp(BaseApp):
         self.download_button = ttk.Button(root, text="Download", command=self.start_download)
         self.download_button.pack(pady=20)
 
-        self.progress_label = ttk.Label(root, text="Progress: 0%")
+        self.progress_label = ttk.Label(root, text="Progress: Waiting")
         self.progress_label.pack(pady=5)
 
         self.settings_button = ttk.Button(root, text="Settings", command=lambda: self.switch_window(SettingsApp))
@@ -72,6 +65,8 @@ class DownloaderApp(BaseApp):
             self.folder_entry.insert(0, folder_selected)
 
     def start_download(self):
+        self._update_progress("Downloading")
+        self.root.update_idletasks()  # Force UI update
         url = self.url_entry.get()
         output_folder = self.folder_entry.get()
         if not url or not output_folder:
@@ -87,14 +82,16 @@ class DownloaderApp(BaseApp):
 
         self.download_button.config(state=tk.DISABLED)
         try:
-            downloader.download_video(progress_callback=self._update_progress)
+            downloader.download_video()
             if self.option_var.get() == "audio":
                 downloader.add_audio_metadata()
+            self._update_progress("Finished")
             messagebox.showinfo("Success", "Download complete!")
         except Exception as e:
             messagebox.showerror("Error", f"Download failed: {e}")
         finally:
             self.download_button.config(state=tk.NORMAL)
+            self._update_progress("Waiting")
 
     def _update_output_folder(self):
         """Update the default folder when the format changes."""
@@ -106,13 +103,8 @@ class DownloaderApp(BaseApp):
         self.folder_entry.delete(0, tk.END)
         self.folder_entry.insert(0, self.output_folder)
 
-    def _update_progress(self, percent):
-        self.progress_label.config(text=f"Progress: {percent}")
-
-    def _update_title(self, *args):
-        # This function will now be triggered every time the title changes
-        self.title_var.set("Hello World")
-        print("Title changed:", self.title_str.get())  # Prints the current text in the title entry
+    def _update_progress(self, status):
+        self.progress_label.config(text=f"Progress: {status}")
 
 class SettingsApp(BaseApp):
     def __init__(self, root):
