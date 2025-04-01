@@ -26,7 +26,7 @@ def update_authors(author_urls):
     for url in author_urls:
         os.makedirs(directory_path, exist_ok=True)
         command = ["gallery-dl", "-d", directory_path, url]
-        print(f"Download starting: {url}")
+        print(f"Download for tracked authors starting: {url}")
         subprocess.run(command)  # Queues all the downloads
 
 def download_images(urls):
@@ -39,7 +39,7 @@ def download_images(urls):
     for url in urls:
         os.makedirs(directory_path, exist_ok=True)
         command = ["gallery-dl", "-d", directory_path, url]
-        print(f"Download starting: {url}")
+        print(f"Download for starting: {url}")
         subprocess.run(command)  # Queues all the downloads
 
 # Main script
@@ -54,5 +54,8 @@ elif starting_url.startswith("https://www.pixiv.net/en/users"):
     workflow = "https://www.pixiv.net/en/users"
     pixiv_urls = get_all_pixiv_tabs(workflow)
     download_images(pixiv_urls)
+else:
+    print("No valid pixiv url")
+    pass
 
 
