@@ -2,7 +2,7 @@ import subprocess
 import os
 from get_a_single_tab import get_browser_url_specific
 from get_all_tabs import get_all_pixiv_tabs
-from utilities import get_config, get_authors
+from utilities import get_config
 
 # Path allocation
 root_path = os.path.dirname(os.path.realpath(__file__))
@@ -11,7 +11,7 @@ os.chdir(root_path)
 config_file = "config.txt"
 config = get_config(config_file)
 author_file = "authors.txt"
-author_urls = get_authors(author_file)
+author_urls = get_config(author_file)
 # Configuration variables assigment
 directory_path = config.get("directory_path")
 
@@ -23,7 +23,7 @@ def update_authors(author_urls):
     
     print(f"Updating {len(author_urls)} authors...")
 
-    for url in author_urls:
+    for url in author_urls.values():
         os.makedirs(directory_path, exist_ok=True)
         command = ["gallery-dl", "-d", directory_path, url]
         print(f"Download for tracked authors starting: {url}")
