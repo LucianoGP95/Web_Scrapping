@@ -7,7 +7,7 @@ class Downloader:
     def __init__(self, url, output_folder):
         self.output_folder = output_folder
         self.url = url
-        self.ydl_opts = {}  # Inicializar como diccionario vacío
+        self.ydl_opts = {}
         self.info = {}
 
     def sanitize_filename(self, filename):
@@ -42,17 +42,12 @@ class Downloader:
             'format': 'bestaudio',
             'outtmpl': f"{self.output_folder}/%(title)s.%(ext)s",
             'postprocessors': [
-                {
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '192',
-                },
-                {
-                    'key': 'FFmpegMetadata',
-                },
+                {'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'},
+                {'key': 'FFmpegMetadata'},
+                {'key': 'EmbedThumbnail'},
             ],
-            'writethumbnail': False,
-            'embedthumbnail': False,
+            'writethumbnail': True,
+            'embedthumbnail': True,
             'addmetadata': True,
         }
 
@@ -109,83 +104,3 @@ if __name__ == "__main__":
 
     if extract_audio:
         downloader.add_audio_metadata()
-
-""" output_path = ""
-
-def download_video(url, output_folder="output_video"):
-    # Get video info first
-    ydl_opts_info = {'quiet': True, 'noplaylist': True}
-    with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
-        info = ydl.extract_info(url, download=False)  # Get video metadata
-    
-    video_title = info.get('title')
-    ext = info.get('ext', 'mp4')  # Default to mp4 if no extension is found
-    filename = f"{output_folder}/{video_title}.{ext}"
-    
-    # Check if file exists
-    if os.path.exists(filename):
-        print(f"Skipping: {filename} already exists.")
-        return
-    
-    # Download the video
-    ydl_opts = {
-        'format': 'best',
-        'outtmpl': filename,
-        'noplaylist': True,
-    }
-    
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([url])
-
-def download_audio(url, output_folder="output_audio"):
-    # Ensure output folder exists
-    os.makedirs(output_folder, exist_ok=True)
-
-    # Download entire playlist
-    ydl_opts = {
-        'format': 'bestaudio',
-        'outtmpl': f"{output_folder}/%(title)s.%(ext)s",
-        'postprocessors': [
-            {
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            },
-            {
-                'key': 'FFmpegMetadata',  # Ensures metadata is preserved
-            },
-        ],
-        'writethumbnail': False,  # Download thumbnails if available
-        'embedthumbnail': False,  # Embed thumbnails in MP3
-        'addmetadata': True,  # Add metadata automatically
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=True)
-
-    print("Download complete!")
-
-    # Manually add metadata if needed
-    for entry in info['entries']:
-        if not entry:  # Skip empty entries
-            continue
-        title = entry.get('title', 'Unknown Title')
-        artist = entry.get('uploader', 'Unknown Artist')
-        album = entry.get('playlist_title', 'YouTube Playlist')
-        filename = f"{output_folder}/{title}.mp3"
-
-        if os.path.exists(filename):
-            try:
-                audio = EasyID3(filename)
-                audio["title"] = title
-                audio["artist"] = artist
-                audio["album"] = album
-                audio.save()
-                print(f"Metadata added: {filename}")
-            except Exception as e:
-                print(f"Error adding metadata to {filename}: {e}")
-
-# Example usage
-#download_video("https://www.youtube.com/watch?v=9DJlKmw8TSM&list=PL0ZLaoztzqEMu7IEXHJjtKU05he9FTzZy&index=6&ab_channel=AmazonPrimeVideoEspa%C3%B1a")
-
-download_audio("https://www.youtube.com/watch?v=hAdJKAordaE&list=PLVjh-wyn2z0shapFTld4TMa_HxsF7WIFg&index=3&ab_channel=DylanSkie") """

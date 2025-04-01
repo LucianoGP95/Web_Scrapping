@@ -1,23 +1,12 @@
-import tkinter as tk
-from tkinter import ttk
-from tkinter.ttk import Style
+from mutagen.mp3 import MP3
+from mutagen.id3 import ID3, APIC
 
-root = tk.Tk()
+def has_thumbnail(mp3_file):
+    audio = MP3(mp3_file, ID3=ID3)
+    for tag in audio.tags.values():
+        if isinstance(tag, APIC):  # APIC stores album art
+            return True
+    return False
 
-entry_style = Style()
-
-entry_style.configure('style.TEntry', 
-
-            fieldbackground="black", 
-
-            foreground="white"           
-
-           )
-
-e = ttk.Entry(root, width=80, style='style.TEntry', font='sans 15 bold')
-
-e.focus_force()
-
-e.grid(row=0, column=0, columnspan=4, padx=0, pady=0, sticky="nsew")
-
-root.mainloop()
+mp3_path = r"D:\1_P\Web_Scraper\Youtube_Downloader\downloads\audio\Ona Hei.mp3"  # Replace with your file path
+print("Thumbnail found!" if has_thumbnail(mp3_path) else "No thumbnail found.")
