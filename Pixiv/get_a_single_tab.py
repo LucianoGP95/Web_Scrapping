@@ -9,7 +9,9 @@ def get_browser_url_specific():
     # Print all window titles for debugging
     print("Active windows:")
     visible_windows = [w for w in gw.getWindowsWithTitle("") if "pixiv" in w.title and not w.isMinimized]
-    
+    if not visible_windows:
+        print("No valid window found")
+        return "No window"
     for window in visible_windows:
         print(f"Visible window: {window.title}")  # Print visible window title
 
@@ -26,8 +28,9 @@ def get_browser_url_specific():
         url = pyperclip.paste()
         if url.startswith("http"):
             return url
-
-    return None
+        else:
+            print("No valid url found")
+            return "No url"
 
 # Test script
 if __name__ == "__main__":
