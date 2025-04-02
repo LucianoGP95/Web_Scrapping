@@ -1,5 +1,4 @@
-import subprocess
-import os
+import subprocess, os
 from get_a_single_tab import get_browser_url_specific
 from get_all_tabs import get_all_pixiv_tabs
 from utilities import get_config
@@ -32,10 +31,10 @@ def update_authors(author_urls):
     if not author_urls:
         print("No valid author URLs.")
         return
-    
+    author_amount =len(author_urls)
     print(f"Updating {len(author_urls)} authors...")
     authors = [author for author in author_urls.keys()]
-    [print(author) for author in authors]
+    [print(f"{author}  total tracking: {author_amount}") for author in authors]
 
     urls = [url for url in author_urls.values()]
     download(urls)
