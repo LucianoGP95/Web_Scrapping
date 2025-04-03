@@ -2,22 +2,20 @@ import csv, time, os
 import requests
 # Based off: https://gist.github.com/bem13/596ec5f341aaaefbabcbf1468d7852d5
 
-# Path creation
-root_path = os.getcwd()
-base_url = 'https://danbooru.donmai.us/tags.json?limit=1000&search[hide_empty]=yes&search[is_deprecated]=no&search[order]=count'
-# Global variables
-danbooru_raw_tags = 'raw_tags.csv'
-danbooru_refined_tags = 'tags.csv'
-filter = {
-    "postcount_filter":100,
-    "category_filter": [0]
-}
-
 # Open a file to write
-def get_tags_raw(url, output_file, filter, rewrite_existent=True):
-    output_file_path = os.path.join(root_path, output_file)
+def get_tags_raw(url, output_file, category_selection: str, postcount_filter: str ="100", rewrite_existent: bool =True):
+    output_file_path = output_file
+    category_dict = {
+            "Author":[0],
+            "Meta": [5]
+        }
+    try:
+        category_filter = category_dict.get(category_selection)
+    except Exception as e:
+        print(e)
     if rewrite_existent == False and os.path.exists(output_file_path):
-        print(f"An output file already exists!: {output_file} \n Skipping get_tags_raw()")
+        message = f"An output file already exists!: {output_file} \n Skipping get_tags_raw()"
+        print(message)
         return
     with open(output_file, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
@@ -38,10 +36,10 @@ def get_tags_raw(url, output_file, filter, rewrite_existent=True):
                     break
                 # Write the data
                 for item in data:
-                    if item['post_count'] < filter["postcount_filter"]:
-                        print(f"Reached minimum post count: {filter['postcount_filter']}\nStopping get_tags_postcount()")
+                    if item['post_count'] < int(postcount_filter):
+                        print(f"Reached minimum post count: {postcount_filter}\nStopping get_tags_postcount()")
                         return
-                    if item['category'] in filter["category_filter"]:
+                    if item['category'] in category_filter:
                         writer.writerow([item['name'], item['post_count'], item['category']])
                 # Explicitly flush the data to the file
                 file.flush()
@@ -54,8 +52,8 @@ def get_tags_raw(url, output_file, filter, rewrite_existent=True):
     print(f'Data has been written to {output_file}', flush=True)
 
 def get_tags_refined(base_file, output_file, rewrite_existent=False):
-    base_file_path = os.path.join(root_path, base_file)
-    output_file_path = os.path.join(root_path, output_file)
+    base_file_path = base_file
+    output_file_path = output_file
 
     if not rewrite_existent and os.path.exists(output_file_path):
         print(f"An output file already exists!: {output_file} \nSkipping get_tags_refined()")
@@ -77,5 +75,4 @@ def get_tags_refined(base_file, output_file, rewrite_existent=False):
     print(f'Data has been refined and written to {output_file}')
 
 if __name__ == "__main__":
-    get_tags_raw(base_url, danbooru_raw_tags, filter, rewrite_existent=False)
-    get_tags_refined(danbooru_raw_tags, danbooru_refined_tags, rewrite_existent=False)
+    pass
