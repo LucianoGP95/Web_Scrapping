@@ -1,9 +1,20 @@
+import subprocess
 import os
-from database import Database
 
-root_path = os.getcwd()
-db_path = os.path.join(root_path, "database")
-print(db_path)
+def download(urls, base_dir):
+    for url in urls:
+        os.makedirs(base_dir, exist_ok=True)
+        command = [
+        "gallery-dl",
+        "-d", base_dir,
+        "--config", ".\\config\\config.json",
+        "--write-metadata",
+        url
+        ]
+        print(f"Download for starting: {url}")
+        subprocess.run(command)  # Queues all the downloads
+        print("Finished download!")
 
-database = Database("pixiv.db", "./database")
-database.close_conn()
+download(["https://www.pixiv.net/en/artworks/127775110"], "D://1_P//1Art//5_AI//pixiv")
+
+"""  """

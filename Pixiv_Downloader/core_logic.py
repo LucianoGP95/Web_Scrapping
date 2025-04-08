@@ -3,22 +3,25 @@ from get_a_single_tab import get_browser_url_specific
 from get_all_tabs import get_all_pixiv_tabs
 from utilities import get_config
 
-def download(urls, output_path):
+def download(urls, base_dir, db):
     for url in urls:
-        os.makedirs(output_path, exist_ok=True)
+        duplicate_check = check_database(url, db)
+        if duplicate_check:
+            print(f"Previously downloaded!\nSkipping {url}")
+            continue
+        os.makedirs(base_dir, exist_ok=True)
         command = [
-            "gallery-dl",
-            "--write-metadata",
-            "--metadata-format", "json",
-            "--config", ".\\config\\config.json",
-            "-d", output_path,
-            url
+        "gallery-dl",
+        "-d", base_dir,
+        "--config", ".\\config\\config.json",
+        "--write-metadata",
+        url
         ]
         print(f"Download for starting: {url}")
         subprocess.run(command)  # Queues all the downloads
         print("Finished download!")
 
-def update_authors(author_urls, output_path):
+def update_authors(author_urls, base_dir, db):
     print("Updating authors")
     if not author_urls:
         print("No valid author URLs.")
@@ -29,31 +32,38 @@ def update_authors(author_urls, output_path):
     [print(f"{author}  total tracking: {author_amount}") for author in authors]
 
     urls = [url for url in author_urls.values()]
-    download(urls, output_path)
+    download(urls, base_dir, db)
 
-def get_tabs(urls):
+def get_tabs(urls, base_dir, db):
     if not urls:
         print("No valid URLs in open tabs.")
         return
     
     print(f"Downloading {len(urls)} tabs...")
-    download(urls)
+    download(urls, base_dir, db)
 
-def download_tabs():
+def download_tabs(base_dir, db):
     # Get the starting maximized window and tab url
     starting_url = get_browser_url_specific()
     # Determine the workflow by using the starting url initial subtring
     if starting_url.startswith("https://www.pixiv.net/en/artworks"):
         workflow = "https://www.pixiv.net/en/artworks"
         pixiv_urls = get_all_pixiv_tabs(workflow)
-        get_tabs(pixiv_urls)
+        get_tabs(pixiv_urls, base_dir, db)
     elif starting_url.startswith("https://www.pixiv.net/en/users"):
         workflow = "https://www.pixiv.net/en/users"
         pixiv_urls = get_all_pixiv_tabs(workflow)
-        get_tabs(pixiv_urls)
+        get_tabs(pixiv_urls, base_dir, db)
     else:
         print("No valid pixiv url")
         pass
+
+def check_database(url, db):
+    id = url.split("/")[-1]
+    db.reconnect("pixiv.db")
+    repeated = db.is_url_downloaded(id)
+    db.close_conn()
+    return repeated
 
 # Test script
 if __name__ == "__main__":
@@ -66,8 +76,8 @@ if __name__ == "__main__":
     author_file = ".\\config\\authors.txt"
     author_urls = get_config(author_file)
     # Configuration variables assigment
-    output_path = config.get("output_path")
+    base_dir = config.get("base_dir")
     update_authors(author_urls)
-    download_tabs()
+    download_tabs(base_dir)
 
 

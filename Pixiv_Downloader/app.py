@@ -1,4 +1,4 @@
-import os
+import os, json
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from core_logic import update_authors, download_tabs
@@ -21,11 +21,11 @@ class BaseApp:
         new_window(self.root)
 
 class DownloaderApp(BaseApp):
-    def __init__(self, root, root_path: str, output_path: str):
+    def __init__(self, root, root_path: str, base_dir: str):
         super().__init__(root)  # Initialize the base class
         # Path creation
         self.root_path = root_path
-        self.output_path = output_path
+        self.base_dir = base_dir
         # Parameters
         self.author_file = ".\\config\\authors.txt"
         self.author_urls = get_config(self.author_file)
@@ -33,7 +33,7 @@ class DownloaderApp(BaseApp):
         self.output_label = ttk.Label(root, text="Output Folder:")
         self.output_label.pack(pady=5)
 
-        self.output_var = tk.StringVar(value=self.output_path)
+        self.output_var = tk.StringVar(value=self.base_dir)
         self.output_entry = ttk.Entry(root, width=60, textvariable=self.output_var)
         self.output_entry.pack(pady=5)
 
@@ -44,12 +44,17 @@ class DownloaderApp(BaseApp):
         self.get_tabs_button.pack(pady=5)
 
     def get_authors(self):
-        update_authors(self.author_urls, self.output_path)
-        self.db.process_jsons(self.output_path, "test")
+        update_authors(self.author_urls, self.base_dir, self.db)
+        self.update_database()
 
     def get_tabs(self):
-        download_tabs()
-        self.db.process_jsons(self.output_path, "test")
+        download_tabs(self.base_dir, self.db)
+        self.update_database()
+
+    def update_database(self):
+        self.db.reconnect("pixiv.db")
+        self.db.process_jsons(self.base_dir)
+        self.db.close_conn()
 
     def select_file(self):
         file_selected = filedialog.askopenfilename()
@@ -85,8 +90,10 @@ class SettingsApp(BaseApp):
 
 if __name__ == "__main__":
     root_path = os.getcwd()
-    output_path = os.path.join(root_path, "config/config.txt")
-    output_file = get_config(output_path)
+    config_path = os.path.join(root_path, "config/config.json")
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = json.load(f)
+    base_dir = config["extractor"]["pixiv"]["base-directory"]
     root = tk.Tk()
-    app = DownloaderApp(root, root_path, output_file.get("directory_path"))
+    app = DownloaderApp(root, root_path, base_dir)
     root.mainloop()
