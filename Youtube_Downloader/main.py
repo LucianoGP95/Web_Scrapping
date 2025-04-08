@@ -1,4 +1,4 @@
-import os
+import os, json
 import tkinter as tk
 import yt_dlp
 from tkinter import ttk, filedialog, messagebox
@@ -10,18 +10,33 @@ class BaseApp:
         self.root = root
         self.root.title("YouTube Downloader")
         self.root.geometry("600x400")
+        # Download Properties
+        self.ask_download_list = tk.BooleanVar(value=False)
 
-    def switch_window(self, new_window):
-        """Destroy current window and open a new one."""
+    def switch_window(self, new_window_class):
         for widget in self.root.winfo_children():
             widget.destroy()
-        new_window(self.root)
+        new_window_class(self.root, self.ask_download_list)
+
+    def read_json(self, info_path, field):
+        with open(self.info_path, "r") as config_file:
+            config_data = json.load(config_file)
+            return config_data[field]
 
 class DownloaderApp(BaseApp):
-    def __init__(self, root):
-        super().__init__(root)  # Initialize the base class
+    def __init__(self, root, ask_download_list=None):
+        super().__init__(root)
+        if ask_download_list:
+            self.ask_download_list = ask_download_list
+        self.info_path = os.path.join(os.getcwd(), "help.json")
+        self.APP_VERSION = self.read_json(self.info_path, "version")
 
-        # Default output folder (will update with radio button)
+        menu = tk.Menu(root)
+        root.config(menu=menu)
+        about_menu = tk.Menu(menu)
+        menu.add_cascade(label="Help", menu=about_menu)
+        about_menu.add_command(label="Version", command=self._show_version)
+
         self.default_audio_folder = os.path.join(os.getcwd(), "downloads\\audio")
         self.default_video_folder = os.path.join(os.getcwd(), "downloads\\video")
         self.output_folder = self.default_audio_folder  # Default to audio
@@ -80,6 +95,11 @@ class DownloaderApp(BaseApp):
         else:
             downloader.get_video_opts()
 
+        if "list=" in url and self.ask_download_list.get():
+            confirmation = messagebox.askyesno("Playlist detected", "Do you want to download the full playlist?")
+            if not confirmation:
+                downloader.add_option("--no-playlist")
+
         self.download_button.config(state=tk.DISABLED)
         try:
             downloader.download_video()
@@ -106,12 +126,35 @@ class DownloaderApp(BaseApp):
     def _update_progress(self, status):
         self.progress_label.config(text=f"Progress: {status}")
 
+    def _show_version(self):
+        messagebox.showinfo("Version", self.APP_VERSION)
+
 class SettingsApp(BaseApp):
-    def __init__(self, root):
+    def __init__(self, root, ask_download_list=None):
         super().__init__(root)
-        ttk.Label(root, text="Settings Window").pack(pady=10)
-        back_button = ttk.Button(root, text="Back", command=lambda: self.switch_window(DownloaderApp))
-        back_button.pack(pady=20)
+        if ask_download_list:
+            self.ask_download_list = ask_download_list
+        self.root.geometry("600x300")
+        self.root.title("YT Downloader: Settings Window")
+
+        ttk.Label(root, text="Show playlist confirmation message?").pack(pady=10)
+        self.ask_list_var = tk.StringVar(value=str(self.ask_download_list.get()))
+        self.dropdown_list = ttk.Combobox(root, textvariable=self.ask_list_var, values=["False", "True"], state="readonly")
+        self.dropdown_list.pack()
+
+        button_frame = ttk.Frame(root)
+        button_frame.pack(pady=20)
+
+        save_button = ttk.Button(button_frame, text="Save", command=self.save_settings)
+        save_button.pack(side=tk.LEFT, padx=10)
+
+        back_button = ttk.Button(button_frame, text="Not save", command=lambda: self.switch_window(lambda r: DownloaderApp(r, self.ask_download_list)))
+        back_button.pack(side=tk.LEFT, padx=10)
+
+    def save_settings(self):
+        selected = self.ask_list_var.get()
+        self.ask_download_list.set(selected == "True")
+        messagebox.showinfo("Saved", f"Settings updated: ask_download_list = {self.ask_download_list.get()}")
 
 if __name__ == "__main__":
     root = tk.Tk()

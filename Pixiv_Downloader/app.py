@@ -18,14 +18,22 @@ class BaseApp:
         new_window(self.root)
 
 class DownloaderApp(BaseApp):
-    def __init__(self, root, root_path: str):
+    def __init__(self, root, root_path: str, output_path: str):
         super().__init__(root)  # Initialize the base class
         # Path creation
         self.root_path = root_path
+        self.output_path = output_path
         # Parameters
         self.author_file = ".\\config\\authors.txt"
         self.author_urls = get_config(self.author_file)
         # Widgets
+        self.output_label = ttk.Label(root, text="Output Folder:")
+        self.output_label.pack(pady=5)
+
+        self.output_var = tk.StringVar()
+        self.output_entry = ttk.Entry(root, width=80, textvariable=self.output_var)
+        self.output_entry.pack(pady=5)
+
         self.get_authors_button = ttk.Button(root, text="Get authors!", command=self.get_authors)
         self.get_authors_button.pack(pady=5)
         
@@ -34,7 +42,7 @@ class DownloaderApp(BaseApp):
 
     def get_authors(self):
         #filepath = self.select_file()
-        update_authors(self.author_urls)
+        update_authors(self.author_urls, self.output_path)
 
     def get_tabs():
         download_tabs()
@@ -73,5 +81,5 @@ class SettingsApp(BaseApp):
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = DownloaderApp(root, os.getcwd())
+    app = DownloaderApp(root, os.getcwd(), r"D:\1_P\1Art\5 AI\pixiv")
     root.mainloop()
