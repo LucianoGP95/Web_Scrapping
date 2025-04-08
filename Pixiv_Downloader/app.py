@@ -2,6 +2,7 @@ import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from core_logic import update_authors, download_tabs
+from database import JSONhandler
 from utilities import get_config
 
 class BaseApp:
@@ -9,7 +10,9 @@ class BaseApp:
         """Initialize the main application window."""
         self.root = root
         self.root.title("Danbooru tag downloader")
-        self.root.geometry("170x100")
+        self.root.geometry("300x160")
+        self.db = JSONhandler("pixiv.db", "./database")
+        self.db.close_conn(verbose=False)
 
     def switch_window(self, new_window):
         """Destroy current window and open a new one."""
@@ -30,8 +33,8 @@ class DownloaderApp(BaseApp):
         self.output_label = ttk.Label(root, text="Output Folder:")
         self.output_label.pack(pady=5)
 
-        self.output_var = tk.StringVar(value="")
-        self.output_entry = ttk.Entry(root, width=80, textvariable=self.output_var)
+        self.output_var = tk.StringVar(value=self.output_path)
+        self.output_entry = ttk.Entry(root, width=60, textvariable=self.output_var)
         self.output_entry.pack(pady=5)
 
         self.get_authors_button = ttk.Button(root, text="Get authors!", command=self.get_authors)
@@ -41,11 +44,12 @@ class DownloaderApp(BaseApp):
         self.get_tabs_button.pack(pady=5)
 
     def get_authors(self):
-        #filepath = self.select_file()
         update_authors(self.author_urls, self.output_path)
+        self.db.process_jsons(self.output_path, "test")
 
-    def get_tabs():
+    def get_tabs(self):
         download_tabs()
+        self.db.process_jsons(self.output_path, "test")
 
     def select_file(self):
         file_selected = filedialog.askopenfilename()
@@ -80,6 +84,9 @@ class SettingsApp(BaseApp):
         back_button.pack(pady=20)
 
 if __name__ == "__main__":
+    root_path = os.getcwd()
+    output_path = os.path.join(root_path, "config/config.txt")
+    output_file = get_config(output_path)
     root = tk.Tk()
-    app = DownloaderApp(root, os.getcwd(), r"D:\1_P\1Art\5 AI\pixiv")
+    app = DownloaderApp(root, root_path, output_file.get("directory_path"))
     root.mainloop()

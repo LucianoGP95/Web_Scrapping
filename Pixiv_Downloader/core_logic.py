@@ -7,11 +7,13 @@ def download(urls, output_path):
     for url in urls:
         os.makedirs(output_path, exist_ok=True)
         command = [
-            "gallery-dl", 
-            "--config", ".\\config\\config.json", 
-            "-d", output_path, 
+            "gallery-dl",
+            "--write-metadata",
+            "--metadata-format", "json",
+            "--config", ".\\config\\config.json",
+            "-d", output_path,
             url
-            ]
+        ]
         print(f"Download for starting: {url}")
         subprocess.run(command)  # Queues all the downloads
         print("Finished download!")
