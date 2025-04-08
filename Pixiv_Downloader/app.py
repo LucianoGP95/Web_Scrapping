@@ -30,7 +30,7 @@ class DownloaderApp(BaseApp):
         self.output_label = ttk.Label(root, text="Output Folder:")
         self.output_label.pack(pady=5)
 
-        self.output_var = tk.StringVar()
+        self.output_var = tk.StringVar(value="")
         self.output_entry = ttk.Entry(root, width=80, textvariable=self.output_var)
         self.output_entry.pack(pady=5)
 
