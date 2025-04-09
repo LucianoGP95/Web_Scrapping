@@ -7,7 +7,7 @@ def download(urls, base_dir, db):
     for url in urls:
         duplicate_check = check_database(url, db)
         if duplicate_check:
-            print(f"Previously downloaded!\nSkipping {url}")
+            print(f"Previously downloaded!\n    Skipping {url}")
             continue
         os.makedirs(base_dir, exist_ok=True)
         command = [

@@ -52,9 +52,9 @@ class DownloaderApp(BaseApp):
         self.update_database()
 
     def update_database(self):
-        self.db.reconnect("pixiv.db")
+        self.db.reconnect("pixiv.db", verbose=False)
         self.db.process_jsons(self.base_dir)
-        self.db.close_conn()
+        self.db.close_conn(verbose=False)
 
     def select_file(self):
         file_selected = filedialog.askopenfilename()

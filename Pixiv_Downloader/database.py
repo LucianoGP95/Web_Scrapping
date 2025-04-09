@@ -16,10 +16,12 @@ class Database:
         self.cursor = None
         if not os.path.exists(self.db_path):  # Check if the database file exists before connecting
             print(f"Database *{db_name}* created in: {self.db_path}")
+        else:
+            print(f"Database *{db_name}* found in: {self.db_path}")
         
         self.conn = sqlite3.connect(self.db_path)  # Preventive connection/creation to the database
         self.cursor = self.conn.cursor()
-        print(f"Database *{db_name}* found in: {self.db_path}")
+        print(f"Database *{db_name}* connected.")
 
     def rename_table(self, old_name: str, new_name: str, verbose=True):
         old_name = re.sub(r'\W', '_', old_name)  # To avoid illegal symbols
@@ -252,7 +254,6 @@ class JSONhandler(Database):
     def is_url_downloaded(self, id):
         """Check if the URL has already been downloaded across all tables."""
         id = int(id)
-        print(f"IDDDD {id}")
         try:
             # Get a list of all tables in the database
             self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")

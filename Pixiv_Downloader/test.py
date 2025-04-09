@@ -1,5 +1,6 @@
 import subprocess
 import os
+from database import Database
 
 def download(urls, base_dir):
     for url in urls:
@@ -15,6 +16,9 @@ def download(urls, base_dir):
         subprocess.run(command)  # Queues all the downloads
         print("Finished download!")
 
-download(["https://www.pixiv.net/en/artworks/127775110"], "D://1_P//1Art//5_AI//pixiv")
+#download(["https://www.pixiv.net/en/artworks/127775110"], "D://1_P//1Art//5_AI//pixiv")
 
-"""  """
+db = Database("pixiv.db", rel_path="./database")
+db.consult_tables()
+db.examine_table("_105805418_bluecatboy")
+db.close_conn()
