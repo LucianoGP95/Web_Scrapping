@@ -20,5 +20,5 @@ def download(urls, base_dir):
 
 db = Database("pixiv.db", rel_path="./database")
 db.consult_tables()
-db.examine_table("_105805418_bluecatboy")
+#db.examine_table("_87932796_user_hvma2253")
 db.close_conn()

@@ -189,11 +189,14 @@ class Database:
 class JSONhandler(Database):
     def __init__(self, db_name: str, rel_path=None):
         """Initialize the JSONhandler with the database connection."""
+        # Call the parent class constructor (Database's __init__)
         super().__init__(db_name, rel_path)
 
     def _sanitize_table_name(self, table_name):
         """Sanitize the table name to ensure it follows SQLite's naming rules."""
+        # Replace special characters with underscores
         table_name = re.sub(r'\W', '_', table_name)
+        # If the name starts with a number, prefix it with an underscore
         if table_name[0].isdigit():
             table_name = f"_{table_name}"
         return table_name
@@ -206,76 +209,121 @@ class JSONhandler(Database):
                     filename TEXT PRIMARY KEY,
                     image_id INTEGER,
                     title TEXT,
-                    restrict INTEGER
+                    sanity_level INTEGER,
+                    tags TEXT,
+                    user TEXT,  
+                    type TEXT   
                 );
             ''')
             self.conn.commit()
-            #print(f"Created table for author: {table_name}")
         except sqlite3.Error as e:
             print(f"Error creating table {table_name}: {e}")
 
-    def _insert_metadata(self, table_name, filename, image_id, title, restrict):
+    def _insert_metadata(self, table_name, metadata):
         """Insert the metadata into the specified table."""
         table_name = self._sanitize_table_name(table_name)
         try:
             self.cursor.execute(f'''
-                INSERT INTO {table_name} (filename, image_id, title, restrict)
-                VALUES (?, ?, ?, ?)
-            ''', (filename, image_id, title, restrict))
+                INSERT INTO {table_name} (filename, image_id, title, sanity_level, tags, user, type)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                metadata.get("filename"),
+                metadata.get("image_id"),
+                metadata.get('title'),
+                metadata.get('sanity_level'),
+                metadata.get('tags'),
+                metadata.get('user'),  
+                metadata.get('type')   
+            ))
             self.conn.commit()
         except sqlite3.Error as e:
             print(f"Error inserting into table {table_name}: {e}")
 
     def process_jsons(self, folder_path):
-        """Process all JSON files in a directory and insert their metadata into the database."""
-        for root, _, files in os.walk(folder_path):
-            for file in files:
-                if file.endswith(".json"):
-                    json_path = os.path.join(root, file)
-                    parent_folder = os.path.basename(root)  # Extract the parent folder as the table name
-                    
-                    # Create the table for the parent folder if it does not exist
-                    self._create_table_if_not_exists(parent_folder)
-                    
-                    # Read and insert the metadata from the JSON file
-                    with open(json_path, 'r', encoding='utf-8') as json_file:
-                        data = json.load(json_file)
-                        filename = file.split(".")[0]
-                        image_id = data.get('id')
-                        title = data.get('title')
-                        restrict = data.get('restrict')
+            """Process all JSON files in a directory and insert their metadata into the database."""
+            for root, _, files in os.walk(folder_path):
+                for file in files:
+                    if file.endswith(".json"):
+                        json_path = os.path.join(root, file)
+                        parent_folder = os.path.basename(root)  # Extract the parent folder as the table name
                         
-                        # Insert the metadata into the table
-                        self._insert_metadata(parent_folder, filename, image_id, title, restrict)
-                    
-                    # Optionally, delete the JSON file after processing it
-                    os.remove(json_path)
+                        # Create the table for the parent folder if it does not exist
+                        self._create_table_if_not_exists(parent_folder)
+                        
+                        # Read and insert the metadata from the JSON file
+                        with open(json_path, 'r', encoding='utf-8') as json_file:
+                            data = json.load(json_file)
+                            filename = file.split(".")[0]
+                            image_id = data.get('id')
+                            title = data.get('title')
+                            sanity_level = data.get('sanity_level')
+                            tags = data.get('tags')
+
+                            if isinstance(tags, list):
+                                tags = json.dumps(tags)
+
+                            # Translate metadata (this line now requires `await`)
+                            metadata = {
+                                "filename": filename,
+                                "image_id": image_id,
+                                "title": title,
+                                "sanity_level": sanity_level,
+                                "tags": tags
+                            }
+                            
+
+                            self._insert_metadata(parent_folder, metadata)
+                        
+                        # Optionally, delete the JSON file after processing it
+                        os.remove(json_path)
 
     def is_url_downloaded(self, id):
-        """Check if the URL has already been downloaded across all tables."""
-        id = int(id)
-        try:
-            # Get a list of all tables in the database
-            self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            tables = self.cursor.fetchall()
-            
-            # Iterate through each table and check if the URL exists
-            for table in tables:
-                table_name = table[0]
-                table_name = self._sanitize_table_name(table_name)
+            """Check if the URL has already been downloaded across all tables."""
+            id = int(id)
+            try:
+                # Get a list of all tables in the database
+                self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+                tables = self.cursor.fetchall()
                 
-                # Check if the filename exists in the table
-                self.cursor.execute(f'''
-                    SELECT COUNT(*) FROM {table_name} WHERE image_id = ?;
-                ''', (id,))
-                count = self.cursor.fetchone()[0]
-                
-                if count > 0:  # If the URL exists in any table, return True
-                    return True
-            return False  # Return False if the URL doesn't exist in any table
-        except sqlite3.Error as e:
-            print(f"Error checking URL across all tables: {e}")
-            return False
+                # Iterate through each table and check if the URL exists
+                for table in tables:
+                    table_name = table[0]
+                    table_name = self._sanitize_table_name(table_name)
+                    
+                    # Check if the filename exists in the table
+                    self.cursor.execute(f'''
+                        SELECT COUNT(*) FROM {table_name} WHERE image_id = ?;
+                    ''', (id,))
+                    count = self.cursor.fetchone()[0]
+                    
+                    if count > 0:  # If the URL exists in any table, return True
+                        return True
+                return False  # Return False if the URL doesn't exist in any table
+            except sqlite3.Error as e:
+                print(f"Error checking URL across all tables: {e}")
+                return False
+
+
+"""def after_download_duplicated_check(self, base_dir):
+        # Load existing filenames into a set
+        self.cursor.execute("SELECT filename FROM files")
+        known_files = {row[0] for row in self.cursor.fetchall()}
+
+        # Walk through all subdirectories
+        removed = 0
+        for dirpath, _, filenames in os.walk(base_dir):
+            for fname in filenames:
+                if fname in known_files:
+                    print("Found repeated files!")
+                    fpath = os.path.join(dirpath, fname)
+                    try:
+                        os.remove(fpath)
+                        removed += 1
+                        print(f"Deleted: {fpath}")
+                    except Exception as e:
+                        print(f"Failed to delete {fpath}: {e}")
+
+        print(f"\n✅ Done. Deleted {removed} duplicate files.") """
 
 if __name__ == "__main__":
     root_path = os.getcwd()
