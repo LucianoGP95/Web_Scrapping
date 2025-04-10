@@ -211,7 +211,7 @@ class JSONhandler(Database):
                     title TEXT,
                     sanity_level INTEGER,
                     tags TEXT,
-                    user TEXT,  
+                    illust_ai_type INTEGER,  
                     type TEXT   
                 );
             ''')
@@ -224,7 +224,7 @@ class JSONhandler(Database):
         table_name = self._sanitize_table_name(table_name)
         try:
             self.cursor.execute(f'''
-                INSERT INTO {table_name} (filename, image_id, title, sanity_level, tags, user, type)
+                INSERT INTO {table_name} (filename, image_id, title, sanity_level, tags, illust_ai_type, type)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (
                 metadata.get("filename"),
@@ -232,7 +232,7 @@ class JSONhandler(Database):
                 metadata.get('title'),
                 metadata.get('sanity_level'),
                 metadata.get('tags'),
-                metadata.get('user'),  
+                metadata.get('illust_ai_type'),  
                 metadata.get('type')   
             ))
             self.conn.commit()
@@ -258,9 +258,11 @@ class JSONhandler(Database):
                             title = data.get('title')
                             sanity_level = data.get('sanity_level')
                             tags = data.get('tags')
+                            illust_ai_type = data.get("illust_ai_type")
+                            type_ = data.get('type')
 
                             if isinstance(tags, list):
-                                tags = json.dumps(tags)
+                                tags = ";".join(tags)
 
                             # Translate metadata (this line now requires `await`)
                             metadata = {
@@ -268,7 +270,9 @@ class JSONhandler(Database):
                                 "image_id": image_id,
                                 "title": title,
                                 "sanity_level": sanity_level,
-                                "tags": tags
+                                "tags": tags,
+                                "illust_ai_type": illust_ai_type,
+                                "type": type_
                             }
                             
 
@@ -303,18 +307,29 @@ class JSONhandler(Database):
                 print(f"Error checking URL across all tables: {e}")
                 return False
 
+    def pre_download_duplicated_check(self, base_dir):
+        # Get all table names dynamically
+        self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = [row[0] for row in self.cursor.fetchall()]
 
-"""def after_download_duplicated_check(self, base_dir):
-        # Load existing filenames into a set
-        self.cursor.execute("SELECT filename FROM files")
-        known_files = {row[0] for row in self.cursor.fetchall()}
+        # Initialize an empty set to store known filenames
+        known_files = set()
 
-        # Walk through all subdirectories
+        # Iterate over all tables and get filenames
+        for table in tables:
+            try:
+                self.cursor.execute(f"SELECT filename FROM {table}")
+                # Add filenames to the known_files set
+                known_files.update(row[0] for row in self.cursor.fetchall())
+            except Exception as e:
+                print(f"Error querying table {table}: {e}")
+
+        # Walk through all subdirectories to find and remove duplicates
         removed = 0
         for dirpath, _, filenames in os.walk(base_dir):
             for fname in filenames:
                 if fname in known_files:
-                    print("Found repeated files!")
+                    print("Found repeated file(s)!")
                     fpath = os.path.join(dirpath, fname)
                     try:
                         os.remove(fpath)
@@ -322,8 +337,8 @@ class JSONhandler(Database):
                         print(f"Deleted: {fpath}")
                     except Exception as e:
                         print(f"Failed to delete {fpath}: {e}")
+                    print(f"\n✅ Done. Deleted {removed} duplicate files.")
 
-        print(f"\n✅ Done. Deleted {removed} duplicate files.") """
 
 if __name__ == "__main__":
     root_path = os.getcwd()

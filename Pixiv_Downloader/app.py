@@ -53,8 +53,8 @@ class DownloaderApp(BaseApp):
 
     def update_database(self):
         self.db.reconnect("pixiv.db", verbose=False)
+        self.db.pre_download_duplicated_check(self.base_dir)
         self.db.process_jsons(self.base_dir)
-        #self.db.after_download_duplicated_check(self.base_dir)
         self.db.close_conn(verbose=False)
 
     def select_file(self):
