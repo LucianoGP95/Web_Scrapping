@@ -201,40 +201,51 @@ class JSONhandler(Database):
             table_name = f"_{table_name}"
         return table_name
 
-    def _create_table_if_not_exists(self, table_name):
+    def _create_table_dynamic(self, table_name, metadata):
         table_name = self._sanitize_table_name(table_name)
         try:
-            self.cursor.execute(f'''
-                CREATE TABLE IF NOT EXISTS "{table_name}" (
-                    filename TEXT PRIMARY KEY,
-                    image_id INTEGER,
-                    title TEXT,
-                    sanity_level INTEGER,
-                    tags TEXT,
-                    illust_ai_type INTEGER,  
-                    type TEXT   
-                );
-            ''')
+            # Ensure table exists
+            self.cursor.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" (filename TEXT);')
+
+            # Get existing columns
+            self.cursor.execute(f'PRAGMA table_info("{table_name}")')
+            existing_columns = {row[1] for row in self.cursor.fetchall()}
+
+            # Add missing columns
+            for key, value in metadata.items():
+                if key not in existing_columns:
+                    if isinstance(value, int):
+                        dtype = "INTEGER"
+                    elif isinstance(value, float):
+                        dtype = "REAL"
+                    else:
+                        dtype = "TEXT"
+                    try:
+                        self.cursor.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{key}" {dtype};')
+                    except sqlite3.Error as e:
+                        print(f"Failed to add column {key}: {e}")
+
             self.conn.commit()
         except sqlite3.Error as e:
-            print(f"Error creating table {table_name}: {e}")
+            print(f"Error updating table {table_name}: {e}")
 
-    def _insert_metadata(self, table_name, metadata):
-        """Insert the metadata into the specified table."""
+    def _insert_metadata_dynamic(self, table_name, metadata):
         table_name = self._sanitize_table_name(table_name)
+        # Convert lists/dicts to strings
+        for key in metadata:
+            if isinstance(metadata[key], (list, dict)):
+                metadata[key] = json.dumps(metadata[key], ensure_ascii=False)
+
+        keys = list(metadata.keys())
+        placeholders = ", ".join(["?" for _ in keys])
+        column_names = ", ".join([f'"{k}"' for k in keys])
+        values = [metadata[k] for k in keys]
+
         try:
-            self.cursor.execute(f'''
-                INSERT INTO {table_name} (filename, image_id, title, sanity_level, tags, illust_ai_type, type)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                metadata.get("filename"),
-                metadata.get("image_id"),
-                metadata.get('title'),
-                metadata.get('sanity_level'),
-                metadata.get('tags'),
-                metadata.get('illust_ai_type'),  
-                metadata.get('type')   
-            ))
+            self.cursor.execute(
+                f'INSERT OR IGNORE INTO "{table_name}" ({column_names}) VALUES ({placeholders});',
+                values
+            )
             self.conn.commit()
         except sqlite3.Error as e:
             print(f"Error inserting into table {table_name}: {e}")
@@ -247,36 +258,17 @@ class JSONhandler(Database):
                         json_path = os.path.join(root, file)
                         parent_folder = os.path.basename(root)  # Extract the parent folder as the table name
                         
-                        # Create the table for the parent folder if it does not exist
-                        self._create_table_if_not_exists(parent_folder)
-                        
                         # Read and insert the metadata from the JSON file
-                        with open(json_path, 'r', encoding='utf-8') as json_file:
-                            data = json.load(json_file)
-                            filename = file.split(".")[0]
-                            image_id = data.get('id')
-                            title = data.get('title')
-                            sanity_level = data.get('sanity_level')
-                            tags = data.get('tags')
-                            illust_ai_type = data.get("illust_ai_type")
-                            type_ = data.get('type')
+                        with open(json_path, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
 
-                            if isinstance(tags, list):
-                                tags = ";".join(tags)
+                        # Use all data as metadata
+                        data["filename"] = file.split(".")[0]
+                        if isinstance(data.get("tags"), list):
+                            data["tags"] = ";".join(data["tags"])
 
-                            # Translate metadata (this line now requires `await`)
-                            metadata = {
-                                "filename": filename,
-                                "image_id": image_id,
-                                "title": title,
-                                "sanity_level": sanity_level,
-                                "tags": tags,
-                                "illust_ai_type": illust_ai_type,
-                                "type": type_
-                            }
-                            
-
-                            self._insert_metadata(parent_folder, metadata)
+                        self._create_table_dynamic(parent_folder, data)
+                        self._insert_metadata_dynamic(parent_folder, data)
                         
                         # Optionally, delete the JSON file after processing it
                         os.remove(json_path)
@@ -348,4 +340,4 @@ if __name__ == "__main__":
     base_dir = config["extractor"]["pixiv"]["base-directory"]
     db = JSONhandler("pixiv.db", "./database")
     db.consult_tables()
-    db.examine_table("_105805418_bluecatboy")
+    db.examine_table("_62457019_user_wcaz2584")

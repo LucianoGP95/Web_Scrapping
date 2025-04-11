@@ -4,15 +4,17 @@ from get_all_tabs import get_all_pixiv_tabs
 from utilities import get_config
 
 def download(urls, base_dir, db):
+    archive_dir = os.path.join(base_dir, "pixiv_archive.txt")
     for url in urls:
         duplicate_check = check_database(url, db)
-        if duplicate_check:
+        """         if duplicate_check:
             print(f"Previously downloaded!\n    Skipping {url}")
-            continue
+            continue """
         os.makedirs(base_dir, exist_ok=True)
         command = [
         "gallery-dl",
         "-d", base_dir,
+        "--download-archive", archive_dir,
         "--config", ".\\config\\config.json",
         "--write-metadata",
         url

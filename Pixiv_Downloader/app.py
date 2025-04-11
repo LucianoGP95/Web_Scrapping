@@ -10,7 +10,7 @@ class BaseApp:
         """Initialize the main application window."""
         self.root = root
         self.root.title("Danbooru tag downloader")
-        self.root.geometry("300x160")
+        self.root.geometry("300x200")
         self.db = JSONhandler("pixiv.db", "./database")
         self.db.close_conn(verbose=False)
 
@@ -43,6 +43,9 @@ class DownloaderApp(BaseApp):
         self.get_tabs_button = ttk.Button(root, text="Get tabs!", command=self.get_tabs)
         self.get_tabs_button.pack(pady=5)
 
+        self.check_database = ttk.Button(root, text="Check database", command=lambda: self.switch_window(SettingsApp))
+        self.check_database.pack(pady=20)
+
     def get_authors(self):
         update_authors(self.author_urls, self.base_dir, self.db)
         self.update_database()
@@ -53,7 +56,7 @@ class DownloaderApp(BaseApp):
 
     def update_database(self):
         self.db.reconnect("pixiv.db", verbose=False)
-        self.db.pre_download_duplicated_check(self.base_dir)
+        #self.db.pre_download_duplicated_check(self.base_dir)
         self.db.process_jsons(self.base_dir)
         self.db.close_conn(verbose=False)
 
@@ -86,7 +89,7 @@ class SettingsApp(BaseApp):
     def __init__(self, root):
         super().__init__(root)
         ttk.Label(root, text="Settings Window").pack(pady=10)
-        back_button = ttk.Button(root, text="Back", command=lambda: self.switch_window(DownloaderApp))
+        back_button = ttk.Button(root, text="Back", command=lambda: self.switch_window(self, DownloaderApp, root_path, base_dir))
         back_button.pack(pady=20)
 
 if __name__ == "__main__":
