@@ -5,18 +5,17 @@ from tkinter import ttk, filedialog, messagebox
 from core_logic import Downloader
 
 class BaseApp:
-    def __init__(self, root):
-        """Initialize the main application window."""
+    def __init__(self, root, ask_download_list=None, normalize_audio=None):
         self.root = root
         self.root.title("YouTube Downloader")
         self.root.geometry("600x400")
-        # Download Properties
-        self.ask_download_list = tk.BooleanVar(value=False)
+        self.ask_download_list = ask_download_list or tk.BooleanVar(value=False)
+        self.normalize_audio = normalize_audio or tk.BooleanVar(value=False)
 
     def switch_window(self, new_window_class):
         for widget in self.root.winfo_children():
             widget.destroy()
-        new_window_class(self.root, self.ask_download_list)
+        new_window_class(self.root, self.ask_download_list, self.normalize_audio)
 
     def read_json(self, info_path, field):
         with open(self.info_path, "r") as config_file:
@@ -24,10 +23,12 @@ class BaseApp:
             return config_data[field]
 
 class DownloaderApp(BaseApp):
-    def __init__(self, root, ask_download_list=None):
-        super().__init__(root)
+    def __init__(self, root, ask_download_list=None, normalize_audio=None):
+        super().__init__(root, ask_download_list, normalize_audio)
         if ask_download_list:
             self.ask_download_list = ask_download_list
+        if normalize_audio:
+            self.normalize_audio = normalize_audio
         self.info_path = os.path.join(os.getcwd(), "help.json")
         self.APP_VERSION = self.read_json(self.info_path, "version")
 
@@ -91,7 +92,7 @@ class DownloaderApp(BaseApp):
         downloader = Downloader(url, output_folder)
 
         if self.option_var.get() == "audio":
-            downloader.get_audio_opts()
+            downloader.get_audio_opts(normalize_audio=self.normalize_audio.get())
         else:
             downloader.get_video_opts()
 
@@ -130,17 +131,24 @@ class DownloaderApp(BaseApp):
         messagebox.showinfo("Version", self.APP_VERSION)
 
 class SettingsApp(BaseApp):
-    def __init__(self, root, ask_download_list=None):
+    def __init__(self, root, ask_download_list=None, normalize_audio=None):
         super().__init__(root)
         if ask_download_list:
             self.ask_download_list = ask_download_list
+        if normalize_audio:
+            self.normalize_audio = normalize_audio
         self.root.geometry("600x300")
         self.root.title("YT Downloader: Settings Window")
 
-        ttk.Label(root, text="Show playlist confirmation message?").pack(pady=10)
+        ttk.Label(root, text="Show playlist download confirmation message?").pack(pady=10)
         self.ask_list_var = tk.StringVar(value=str(self.ask_download_list.get()))
         self.dropdown_list = ttk.Combobox(root, textvariable=self.ask_list_var, values=["False", "True"], state="readonly")
         self.dropdown_list.pack()
+
+        ttk.Label(root, text="Normalize audio?").pack(pady=10)
+        self.ask_norm_var = tk.StringVar(value="True")  
+        self.dropdown_norm = ttk.Combobox(root,textvariable=self.ask_norm_var,values=["True", "False"],state="readonly")
+        self.dropdown_norm.pack()
 
         button_frame = ttk.Frame(root)
         button_frame.pack(pady=20)
@@ -148,13 +156,21 @@ class SettingsApp(BaseApp):
         save_button = ttk.Button(button_frame, text="Save", command=self.save_settings)
         save_button.pack(side=tk.LEFT, padx=10)
 
-        back_button = ttk.Button(button_frame, text="Not save", command=lambda: self.switch_window(lambda r: DownloaderApp(r, self.ask_download_list)))
+        back_button = ttk.Button(button_frame, text="Back", command=self.go_back_to_main)
         back_button.pack(side=tk.LEFT, padx=10)
 
     def save_settings(self):
         selected = self.ask_list_var.get()
         self.ask_download_list.set(selected == "True")
-        messagebox.showinfo("Saved", f"Settings updated: ask_download_list = {self.ask_download_list.get()}")
+        selected_norm = self.ask_norm_var.get()
+        self.normalize_audio.set(selected_norm == "True")
+        messagebox.showinfo("Saved", f"Settings updated:\n"
+                                    f"ask_download_list = {self.ask_download_list.get()}\n"
+                                    f"normalize_audio = {self.normalize_audio.get()}")
+
+    def go_back_to_main(self):
+        """Switch back to the main downloader window and pass the settings."""
+        self.switch_window(DownloaderApp)  # Switch back to the main window
 
 if __name__ == "__main__":
     root = tk.Tk()
