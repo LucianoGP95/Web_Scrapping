@@ -30,16 +30,24 @@ class Downloader:
         with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
             ydl.download([self.url])
 
-    def get_audio_opts(self):
-        """Configura las opciones para descargar solo audio."""
+    def get_audio_opts(self, normalize_audio=True):
+        postprocessors = [
+            {
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            },
+            {'key': 'FFmpegMetadata'},
+            {'key': 'EmbedThumbnail'},
+        ]
+
+        if normalize_audio:
+            postprocessors[0]['postprocessor_args'] = ['-af', 'loudnorm=I=-16:TP=-1.5:LRA=11']
+
         self.ydl_opts = {
             'format': 'bestaudio',
             'outtmpl': f"{self.output_folder}/%(title)s.%(ext)s",
-            'postprocessors': [
-                {'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'},
-                {'key': 'FFmpegMetadata'},
-                {'key': 'EmbedThumbnail'},
-            ],
+            'postprocessors': postprocessors,
             'writethumbnail': True,
             'embedthumbnail': True,
             'addmetadata': True,

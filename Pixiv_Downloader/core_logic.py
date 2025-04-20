@@ -6,7 +6,7 @@ from utilities import get_config
 def download(urls, base_dir, db):
     archive_dir = os.path.join(base_dir, "pixiv_archive.txt")
     for url in urls:
-        duplicate_check = check_database(url, db)
+        # duplicate_check = check_database(url, db)
         """         if duplicate_check:
             print(f"Previously downloaded!\n    Skipping {url}")
             continue """

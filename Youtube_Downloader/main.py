@@ -160,6 +160,7 @@ class SettingsApp(BaseApp):
         back_button.pack(side=tk.LEFT, padx=10)
 
     def save_settings(self):
+        """Save the settings."""
         selected = self.ask_list_var.get()
         self.ask_download_list.set(selected == "True")
         selected_norm = self.ask_norm_var.get()
@@ -169,8 +170,8 @@ class SettingsApp(BaseApp):
                                     f"normalize_audio = {self.normalize_audio.get()}")
 
     def go_back_to_main(self):
-        """Switch back to the main downloader window and pass the settings."""
-        self.switch_window(DownloaderApp)  # Switch back to the main window
+        """Switch back to the main downloader window without saving settings."""
+        self.switch_window(DownloaderApp)
 
 if __name__ == "__main__":
     root = tk.Tk()

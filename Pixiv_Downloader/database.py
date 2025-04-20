@@ -288,7 +288,7 @@ class JSONhandler(Database):
                     
                     # Check if the filename exists in the table
                     self.cursor.execute(f'''
-                        SELECT COUNT(*) FROM {table_name} WHERE image_id = ?;
+                        SELECT COUNT(*) FROM {table_name} WHERE filename = ?;
                     ''', (id,))
                     count = self.cursor.fetchone()[0]
                     
@@ -333,11 +333,7 @@ class JSONhandler(Database):
 
 
 if __name__ == "__main__":
-    root_path = os.getcwd()
-    config_path = os.path.join(root_path, "config/config.json")
-    with open(config_path, "r", encoding="utf-8") as f:
-        config = json.load(f)
-    base_dir = config["extractor"]["pixiv"]["base-directory"]
-    db = JSONhandler("pixiv.db", "./database")
-    db.consult_tables()
-    db.examine_table("_62457019_user_wcaz2584")
+    handler = JSONhandler("pixiv.db", rel_path="./database")
+    handler.process_jsons(r"D:\1_P\Web_Scraper\Pixiv_Downloader")  # <- asegúrate de pasar la ruta correcta
+    handler.consult_tables()
+    handler.examine_table("_102818725_user_xkjh3858")

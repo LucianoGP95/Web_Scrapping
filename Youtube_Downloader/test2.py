@@ -1,9 +1,13 @@
+postprocessors = [
+    {
+        'key': 'FFmpegExtractAudio',
+        'preferredcodec': 'mp3',
+        'preferredquality': '192',
+    },
+    {'key': 'FFmpegMetadata'},
+    {'key': 'EmbedThumbnail'},
+]
 
+postprocessors[0]['postprocessor_args'] = ['-af', 'loudnorm=I=-16:TP=-1.5:LRA=11']
 
-url = "https://www.youtube.com/watch?v=ulfeM8JGq7s&list=RDAY38LoQhl4E&index=5&ab_channel=Vivziepop"
-prefix = url.split('=')[0]
-print(prefix)
-id = url.split('=')[1].split("&")[0]
-print(id)
-new_url = prefix + id
-print(new_url)
+print(postprocessors[0])
