@@ -3,44 +3,41 @@ import time
 from PyQt5.QtCore import Qt, QUrl, QTimer
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QFileDialog,
-    QVBoxLayout, QWidget, QAction, QStackedLayout
+    QVBoxLayout, QWidget, QAction
 )
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtMultimediaWidgets import QVideoWidget
+from timeline import TimelineWidget
 
+# Mock beat times in seconds
 beat_times = [1, 2, 3.5, 5, 6, 7.2, 8.5]
+
+# Convert to ms
+beat_times_sec = [1, 2, 3.5, 5, 6, 7.2, 8.5]
+beat_times = [int(b * 1000) for b in beat_times_sec]
 
 class VideoBeatPlayer(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Video Player with Beat Overlay")
+        self.setWindowTitle("Video Player with Beat Sync")
         self.setGeometry(100, 100, 800, 600)
 
-        # Media player and video widget
         self.media_player = QMediaPlayer(None, QMediaPlayer.VideoSurface)
-        self.video_widget = QVideoWidget()
+        self.video_widget = QVideoWidget(self)
         self.media_player.setVideoOutput(self.video_widget)
 
-        # Overlay label
-        self.label = QLabel("", self)
-        self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("""
-            font-size: 72px;
-            color: red;
-            background-color: rgba(0, 0, 0, 100);
-        """)
-        self.label.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.label.setSizePolicy(self.video_widget.sizePolicy())
+        self.timeline = TimelineWidget(beat_times=beat_times, media_player=self.media_player)
 
-        # Widget for stacking
-        container = QWidget(self)
-        stacked_layout = QStackedLayout(container)
-        stacked_layout.addWidget(self.video_widget)
-        stacked_layout.addWidget(self.label)
+        layout = QVBoxLayout()
+        layout.addWidget(self.video_widget)
+        layout.addWidget(self.timeline)
+        layout.setStretch(0, 1)
+        layout.setStretch(1, 0)
 
-        self.setCentralWidget(container)
+        central_widget = QWidget(self)
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
 
-        # Timer
         self.start_time = None
         self.current_beat = 0
         self.timer = QTimer(self)
@@ -57,9 +54,7 @@ class VideoBeatPlayer(QMainWindow):
         file_menu.addAction(open_action)
 
     def open_file(self):
-        file_name, _ = QFileDialog.getOpenFileName(
-            self, "Open Video File", "", "Video Files (*.mp4 *.avi *.mkv *.mov)"
-        )
+        file_name, _ = QFileDialog.getOpenFileName(self, "Open Video File", "", "Video Files (*.mp4 *.avi *.mkv *.mov)")
         if file_name:
             self.media_player.setMedia(QMediaContent(QUrl.fromLocalFile(file_name)))
             self.media_player.play()
@@ -69,13 +64,13 @@ class VideoBeatPlayer(QMainWindow):
     def check_beat(self):
         if self.start_time:
             elapsed = time.time() - self.start_time
-            if self.current_beat < len(beat_times) and elapsed >= beat_times[self.current_beat]:
-                self.trigger_cue("STROKE")
+            if self.current_beat < len(beat_times_sec) and elapsed >= beat_times_sec[self.current_beat]:
+                self.timeline.flash()
                 self.current_beat += 1
 
     def trigger_cue(self, text):
         self.label.setText(text)
-        QTimer.singleShot(300, lambda: self.label.setText(""))
+        QTimer.singleShot(300, lambda: self.label.setText(""))  # Clear after 300ms
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
