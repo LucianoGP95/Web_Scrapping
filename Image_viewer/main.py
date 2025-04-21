@@ -180,56 +180,56 @@ class ImageViewer(QMainWindow):
                 self.image_paths.extend(grouped[folder])
         else:  # normal
             self.image_paths = [img for folder in sorted(grouped.keys()) for img in grouped[folder]]
+        self.total_images = len(self.image_paths)
 
     def show_image(self):
         if not self.image_paths:
             return
-
+        # Determine how many images we need based on panel mode
+        required_images = 1 if self.panel_mode == "single" else 2 if self.panel_mode == "double" else 4
+        # If not enough images left, reload from folder
+        if len(self.image_paths) < required_images and hasattr(self, 'last_folder'):
+            self.prepare_image_list(self.last_folder)
+        if len(self.image_paths) < required_images:
+            return  # still not enough even after reloading
         # Hide all panels first
         for label in self.labels:
             label.hide()
-
-        # Shuffle image list if it's "random" mode
+        def load_image_from_path(path, label):
+            pixmap = QPixmap(path)
+            if not pixmap.isNull():
+                label.setPixmap(pixmap.scaled(
+                    label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            label.show()
+        # Shuffle list if in random mode
         if self.order_mode == "random":
             random.shuffle(self.image_paths)
-
-        def load_image(index, label):
-            if 0 <= index < len(self.image_paths):
-                pixmap = QPixmap(self.image_paths[index])
-                if not pixmap.isNull():
-                    label.setPixmap(pixmap.scaled(
-                        label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                label.show()
-            else:
-                label.clear()
-
         if self.panel_mode == "single":
-            load_image(self.current_index, self.labels[0])
-
+            load_image_from_path(self.image_paths[self.current_index], self.labels[0])
         elif self.panel_mode == "double":
-            # Pick 2 random images for the two panels
-            random_indexes = random.sample(range(len(self.image_paths)), 2)
-            load_image(random_indexes[0], self.labels[0])
-            load_image(random_indexes[1], self.labels[1])
-
+            indexes = random.sample(range(len(self.image_paths)), 2)
+            images = [self.image_paths.pop(idx) for idx in sorted(indexes, reverse=True)]
+            load_image_from_path(images[0], self.labels[0])
+            load_image_from_path(images[1], self.labels[1])
         elif self.panel_mode == "four":
-            # Pick 4 random images for the four panels
-            random_indexes = random.sample(range(len(self.image_paths)), 4)
-            load_image(random_indexes[0], self.labels[0])
-            load_image(random_indexes[1], self.labels[1])
-            load_image(random_indexes[2], self.labels[2])
-            load_image(random_indexes[3], self.labels[3])
-
-        self.counter_label.setText(f"{self.current_index + 1} / {len(self.image_paths)}")
-
-    def show_next(self):
-        if self.image_paths:
-            self.current_index = (self.current_index + 1) % len(self.image_paths)
-            self.show_image()
+            indexes = random.sample(range(len(self.image_paths)), 4)
+            images = [self.image_paths.pop(idx) for idx in sorted(indexes, reverse=True)]
+            for i in range(4):
+                load_image_from_path(images[i], self.labels[i])
+        shown = 1 if self.panel_mode == "single" else 2 if self.panel_mode == "double" else 4
+        used = min(self.current_index + shown, self.total_images)
+        self.counter_label.setText(f"{used} / {self.total_images} ({shown} per slide)")
 
     def show_previous(self):
         if self.image_paths:
-            self.current_index = (self.current_index - 1) % len(self.image_paths)
+            shown = 1 if self.panel_mode == "single" else 2 if self.panel_mode == "double" else 4
+            self.current_index = (self.current_index - shown) % self.total_images
+            self.show_image()
+
+    def show_next(self):
+        if self.image_paths:
+            shown = 1 if self.panel_mode == "single" else 2 if self.panel_mode == "double" else 4
+            self.current_index = (self.current_index + shown) % self.total_images
             self.show_image()
 
     def toggle_slideshow(self):
