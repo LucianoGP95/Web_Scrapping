@@ -2,7 +2,7 @@ import sys, os, random
 from collections import defaultdict
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QFileDialog,
-    QHBoxLayout, QVBoxLayout, QWidget, QAction, QInputDialog, QActionGroup
+    QHBoxLayout, QVBoxLayout, QWidget, QAction, QInputDialog, QActionGroup, QGridLayout
 )
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, QTimer, QSettings
@@ -18,6 +18,7 @@ class ImageViewer(QMainWindow):
         self.settings = QSettings("MyCompany", "ImageViewer")
         self.slideshow_time = int(self.settings.value("slideshow_time", 3000))
         self.order_mode = self.settings.value("order_mode", "normal")
+        self.panel_mode = self.settings.value("panel_mode", "single")
 
         self.image_paths = []
         self.current_index = 0
@@ -31,9 +32,18 @@ class ImageViewer(QMainWindow):
         self.hide_ui_timer.timeout.connect(self.hide_controls)
 
         # UI Elements
-        self.label = QLabel("Open a folder to start", self)
-        self.label.setAlignment(Qt.AlignCenter)
-        self.label.setStyleSheet("QLabel { background-color: black; color: white; }")
+        self.labels = []
+        for _ in range(4):
+            lbl = QLabel(self)
+            lbl.setAlignment(Qt.AlignCenter)
+            lbl.setStyleSheet("QLabel { background-color: black; }")
+            self.labels.append(lbl)
+
+        self.image_layout = QGridLayout()
+        self.image_layout.addWidget(self.labels[0], 0, 0)
+        self.image_layout.addWidget(self.labels[1], 0, 1)
+        self.image_layout.addWidget(self.labels[2], 1, 0)
+        self.image_layout.addWidget(self.labels[3], 1, 1)
 
         self.prev_button = QPushButton("Previous")
         self.next_button = QPushButton("Next")
@@ -56,7 +66,7 @@ class ImageViewer(QMainWindow):
         button_layout.addWidget(self.counter_label)
 
         layout = QVBoxLayout()
-        layout.addWidget(self.label, stretch=1)
+        layout.addLayout(self.image_layout, stretch=1)
         layout.addLayout(button_layout)
 
         container = QWidget()
@@ -94,13 +104,41 @@ class ImageViewer(QMainWindow):
         self.random_order_action.triggered.connect(lambda: self.set_order_mode("random"))
         self.random_by_folders_action.triggered.connect(lambda: self.set_order_mode("random_by_folders"))
 
-        # Restore previous mode
+        # Restore order mode
         if self.order_mode == "random":
             self.random_order_action.setChecked(True)
         elif self.order_mode == "random_by_folders":
             self.random_by_folders_action.setChecked(True)
         else:
             self.normal_order_action.setChecked(True)
+
+        # Panel mode actions
+        panel_menu = self.menuBar().addMenu("Panel Mode")
+        self.panel_group = QActionGroup(self)
+
+        self.single_panel_action = QAction("Single Panel", self, checkable=True)
+        self.double_panel_action = QAction("Double Panel", self, checkable=True)
+        self.four_panel_action = QAction("Four Panel", self, checkable=True)
+
+        self.panel_group.addAction(self.single_panel_action)
+        self.panel_group.addAction(self.double_panel_action)
+        self.panel_group.addAction(self.four_panel_action)
+
+        panel_menu.addAction(self.single_panel_action)
+        panel_menu.addAction(self.double_panel_action)
+        panel_menu.addAction(self.four_panel_action)
+
+        self.single_panel_action.triggered.connect(lambda: self.set_panel_mode("single"))
+        self.double_panel_action.triggered.connect(lambda: self.set_panel_mode("double"))
+        self.four_panel_action.triggered.connect(lambda: self.set_panel_mode("four"))
+
+        # Restore panel mode
+        if self.panel_mode == "double":
+            self.double_panel_action.setChecked(True)
+        elif self.panel_mode == "four":
+            self.four_panel_action.setChecked(True)
+        else:
+            self.single_panel_action.setChecked(True)
 
     def set_order_mode(self, mode):
         self.order_mode = mode
@@ -109,6 +147,11 @@ class ImageViewer(QMainWindow):
             self.prepare_image_list(self.last_folder)
             self.current_index = 0
             self.show_image()
+
+    def set_panel_mode(self, mode):
+        self.panel_mode = mode
+        self.settings.setValue("panel_mode", mode)
+        self.show_image()
 
     def open_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Image Folder")
@@ -141,14 +184,43 @@ class ImageViewer(QMainWindow):
     def show_image(self):
         if not self.image_paths:
             return
-        pixmap = QPixmap(self.image_paths[self.current_index])
-        if not pixmap.isNull():
-            self.label.setPixmap(pixmap.scaled(
-                self.label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        self.counter_label.setText(f"{self.current_index + 1} / {len(self.image_paths)}")
 
-    def resizeEvent(self, event):
-        self.show_image()
+        # Hide all panels first
+        for label in self.labels:
+            label.hide()
+
+        # Shuffle image list if it's "random" mode
+        if self.order_mode == "random":
+            random.shuffle(self.image_paths)
+
+        def load_image(index, label):
+            if 0 <= index < len(self.image_paths):
+                pixmap = QPixmap(self.image_paths[index])
+                if not pixmap.isNull():
+                    label.setPixmap(pixmap.scaled(
+                        label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                label.show()
+            else:
+                label.clear()
+
+        if self.panel_mode == "single":
+            load_image(self.current_index, self.labels[0])
+
+        elif self.panel_mode == "double":
+            # Pick 2 random images for the two panels
+            random_indexes = random.sample(range(len(self.image_paths)), 2)
+            load_image(random_indexes[0], self.labels[0])
+            load_image(random_indexes[1], self.labels[1])
+
+        elif self.panel_mode == "four":
+            # Pick 4 random images for the four panels
+            random_indexes = random.sample(range(len(self.image_paths)), 4)
+            load_image(random_indexes[0], self.labels[0])
+            load_image(random_indexes[1], self.labels[1])
+            load_image(random_indexes[2], self.labels[2])
+            load_image(random_indexes[3], self.labels[3])
+
+        self.counter_label.setText(f"{self.current_index + 1} / {len(self.image_paths)}")
 
     def show_next(self):
         if self.image_paths:
