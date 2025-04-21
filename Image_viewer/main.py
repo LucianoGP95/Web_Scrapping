@@ -56,7 +56,7 @@ class ImageViewer(QMainWindow):
         button_layout.addWidget(self.counter_label)
 
         layout = QVBoxLayout()
-        layout.addWidget(self.label, stretch=1) 
+        layout.addWidget(self.label, stretch=1)
         layout.addLayout(button_layout)
 
         container = QWidget()
@@ -105,7 +105,7 @@ class ImageViewer(QMainWindow):
     def set_order_mode(self, mode):
         self.order_mode = mode
         self.settings.setValue("order_mode", mode)
-        if self.image_paths:
+        if hasattr(self, 'last_folder') and self.last_folder:  # Ensure folder is loaded
             self.prepare_image_list(self.last_folder)
             self.current_index = 0
             self.show_image()
@@ -113,7 +113,7 @@ class ImageViewer(QMainWindow):
     def open_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Image Folder")
         if folder:
-            self.last_folder = folder
+            self.last_folder = folder  # Save the last opened folder
             self.prepare_image_list(folder)
             self.current_index = 0
             if self.image_paths:
