@@ -1,7 +1,8 @@
 import sys, os, random
+from collections import defaultdict
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QFileDialog,
-    QHBoxLayout, QVBoxLayout, QWidget, QAction, QInputDialog
+    QHBoxLayout, QVBoxLayout, QWidget, QAction, QInputDialog, QActionGroup
 )
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt, QTimer, QSettings
@@ -16,7 +17,7 @@ class ImageViewer(QMainWindow):
 
         self.settings = QSettings("MyCompany", "ImageViewer")
         self.slideshow_time = int(self.settings.value("slideshow_time", 3000))
-        self.randomize_order = self.settings.value("randomize_order", "false") == "true"
+        self.order_mode = self.settings.value("order_mode", "normal")
 
         self.image_paths = []
         self.current_index = 0
@@ -38,14 +39,13 @@ class ImageViewer(QMainWindow):
         self.next_button = QPushButton("Next")
         self.slideshow_button = QPushButton("Start Slideshow")
         self.fullscreen_button = QPushButton("Fullscreen")
+        self.counter_label = QLabel("0 / 0")
+        self.counter_label.setStyleSheet("color: black;")
 
         self.prev_button.clicked.connect(self.show_previous)
         self.next_button.clicked.connect(self.show_next)
         self.slideshow_button.clicked.connect(self.toggle_slideshow)
         self.fullscreen_button.clicked.connect(self.toggle_fullscreen)
-        
-        self.counter_label = QLabel("0 / 0")
-        self.counter_label.setStyleSheet("color: black;")
 
         # Layout
         button_layout = QHBoxLayout()
@@ -56,7 +56,7 @@ class ImageViewer(QMainWindow):
         button_layout.addWidget(self.counter_label)
 
         layout = QVBoxLayout()
-        layout.addWidget(self.label, stretch=1)  # Make label take extra space
+        layout.addWidget(self.label, stretch=1) 
         layout.addLayout(button_layout)
 
         container = QWidget()
@@ -70,30 +70,73 @@ class ImageViewer(QMainWindow):
         set_time_action = QAction("Set Slideshow Time", self)
         set_time_action.triggered.connect(self.set_slideshow_time)
 
-        self.randomize_action = QAction("Randomize Order", self, checkable=True)
-        self.randomize_action.setChecked(self.randomize_order)
-        self.randomize_action.triggered.connect(self.toggle_randomize)
+        file_menu = self.menuBar().addMenu("File")
+        file_menu.addAction(open_action)
+        file_menu.addAction(set_time_action)
 
-        menu = self.menuBar().addMenu("File")
-        menu.addAction(open_action)
-        menu.addAction(set_time_action)
-        menu.addAction(self.randomize_action)
+        # Order mode actions
+        order_menu = self.menuBar().addMenu("Order Mode")
+        self.order_group = QActionGroup(self)
+
+        self.normal_order_action = QAction("Normal", self, checkable=True)
+        self.random_order_action = QAction("Random", self, checkable=True)
+        self.random_by_folders_action = QAction("Random by Folders", self, checkable=True)
+
+        self.order_group.addAction(self.normal_order_action)
+        self.order_group.addAction(self.random_order_action)
+        self.order_group.addAction(self.random_by_folders_action)
+
+        order_menu.addAction(self.normal_order_action)
+        order_menu.addAction(self.random_order_action)
+        order_menu.addAction(self.random_by_folders_action)
+
+        self.normal_order_action.triggered.connect(lambda: self.set_order_mode("normal"))
+        self.random_order_action.triggered.connect(lambda: self.set_order_mode("random"))
+        self.random_by_folders_action.triggered.connect(lambda: self.set_order_mode("random_by_folders"))
+
+        # Restore previous mode
+        if self.order_mode == "random":
+            self.random_order_action.setChecked(True)
+        elif self.order_mode == "random_by_folders":
+            self.random_by_folders_action.setChecked(True)
+        else:
+            self.normal_order_action.setChecked(True)
+
+    def set_order_mode(self, mode):
+        self.order_mode = mode
+        self.settings.setValue("order_mode", mode)
+        if self.image_paths:
+            self.prepare_image_list(self.last_folder)
+            self.current_index = 0
+            self.show_image()
 
     def open_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Image Folder")
         if folder:
-            self.image_paths = []
-            for root, _, files in os.walk(folder):
-                for file in files:
-                    if file.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".gif")):
-                        self.image_paths.append(os.path.join(root, file))
-            if self.randomize_order:
-                random.shuffle(self.image_paths)
-            else:
-                self.image_paths.sort()
+            self.last_folder = folder
+            self.prepare_image_list(folder)
             self.current_index = 0
             if self.image_paths:
                 self.show_image()
+
+    def prepare_image_list(self, folder):
+        grouped = defaultdict(list)
+        for root, _, files in os.walk(folder):
+            for file in sorted(files):
+                if file.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".gif")):
+                    grouped[root].append(os.path.join(root, file))
+
+        if self.order_mode == "random":
+            self.image_paths = [img for imgs in grouped.values() for img in imgs]
+            random.shuffle(self.image_paths)
+        elif self.order_mode == "random_by_folders":
+            folders = list(grouped.keys())
+            random.shuffle(folders)
+            self.image_paths = []
+            for folder in folders:
+                self.image_paths.extend(grouped[folder])
+        else:  # normal
+            self.image_paths = [img for folder in sorted(grouped.keys()) for img in grouped[folder]]
 
     def show_image(self):
         if not self.image_paths:
@@ -175,17 +218,6 @@ class ImageViewer(QMainWindow):
             if self.timer.isActive():
                 self.timer.stop()
                 self.timer.start(self.slideshow_time)
-
-    def toggle_randomize(self, checked):
-        self.randomize_order = checked
-        self.settings.setValue("randomize_order", "true" if checked else "false")
-        if self.image_paths:
-            if self.randomize_order:
-                random.shuffle(self.image_paths)
-            else:
-                self.image_paths.sort()
-            self.current_index = 0
-            self.show_image()
 
 
 if __name__ == "__main__":
