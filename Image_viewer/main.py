@@ -4,8 +4,9 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QPushButton, QFileDialog,
     QHBoxLayout, QVBoxLayout, QWidget, QAction, QInputDialog, QActionGroup, QGridLayout
 )
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtCore import Qt, QTimer, QSettings
+from PyQt5.QtCore import Qt, QTimer, QSettings, QUrl
 
 
 class ImageViewer(QMainWindow):
@@ -26,6 +27,9 @@ class ImageViewer(QMainWindow):
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.show_next)
+
+        self.music_folder = os.path.abspath("./audio")
+        self.music_player = QMediaPlayer()
 
         self.hide_ui_timer = QTimer()
         self.hide_ui_timer.setSingleShot(True)
@@ -171,7 +175,7 @@ class ImageViewer(QMainWindow):
 
         if self.order_mode == "random":
             self.image_paths = [img for imgs in grouped.values() for img in imgs]
-            random.shuffle(self.image_paths)
+            random.shuffle(self.image_paths)  # SHUFFLE ONCE HERE ONLY
         elif self.order_mode == "random_by_folders":
             folders = list(grouped.keys())
             random.shuffle(folders)
@@ -201,21 +205,20 @@ class ImageViewer(QMainWindow):
                 label.setPixmap(pixmap.scaled(
                     label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
             label.show()
-        # Shuffle list if in random mode
-        if self.order_mode == "random":
-            random.shuffle(self.image_paths)
+        # Select images to display based on panel mode
         if self.panel_mode == "single":
             load_image_from_path(self.image_paths[self.current_index], self.labels[0])
         elif self.panel_mode == "double":
-            indexes = random.sample(range(len(self.image_paths)), 2)
-            images = [self.image_paths.pop(idx) for idx in sorted(indexes, reverse=True)]
-            load_image_from_path(images[0], self.labels[0])
-            load_image_from_path(images[1], self.labels[1])
+            # Use current_index to select 2 images
+            indexes = [(self.current_index + i) % len(self.image_paths) for i in range(2)]
+            load_image_from_path(self.image_paths[indexes[0]], self.labels[0])
+            load_image_from_path(self.image_paths[indexes[1]], self.labels[1])
         elif self.panel_mode == "four":
-            indexes = random.sample(range(len(self.image_paths)), 4)
-            images = [self.image_paths.pop(idx) for idx in sorted(indexes, reverse=True)]
+            # Use current_index to select 4 images
+            indexes = [(self.current_index + i) % len(self.image_paths) for i in range(4)]
             for i in range(4):
-                load_image_from_path(images[i], self.labels[i])
+                load_image_from_path(self.image_paths[indexes[i]], self.labels[i])
+        # Update counter
         shown = 1 if self.panel_mode == "single" else 2 if self.panel_mode == "double" else 4
         used = min(self.current_index + shown, self.total_images)
         self.counter_label.setText(f"{used} / {self.total_images} ({shown} per slide)")
@@ -223,21 +226,23 @@ class ImageViewer(QMainWindow):
     def show_previous(self):
         if self.image_paths:
             shown = 1 if self.panel_mode == "single" else 2 if self.panel_mode == "double" else 4
-            self.current_index = (self.current_index - shown) % self.total_images
+            self.current_index = (self.current_index - shown) % len(self.image_paths)
             self.show_image()
 
     def show_next(self):
         if self.image_paths:
             shown = 1 if self.panel_mode == "single" else 2 if self.panel_mode == "double" else 4
-            self.current_index = (self.current_index + shown) % self.total_images
+            self.current_index = (self.current_index + shown) % len(self.image_paths)
             self.show_image()
 
     def toggle_slideshow(self):
         if self.timer.isActive():
             self.timer.stop()
+            self.music_player.stop()
             self.slideshow_button.setText("Start Slideshow")
         else:
             self.timer.start(self.slideshow_time)
+            self.play_random_song()
             self.slideshow_button.setText("Stop Slideshow")
 
     def toggle_fullscreen(self):
@@ -291,6 +296,19 @@ class ImageViewer(QMainWindow):
                 self.timer.stop()
                 self.timer.start(self.slideshow_time)
 
+    def play_random_song(self):
+        if not os.path.isdir(self.music_folder):
+            return
+
+        music_files = [f for f in os.listdir(self.music_folder)
+                    if f.lower().endswith(('.mp3', '.wav', '.ogg'))]
+
+        if music_files:
+            chosen = random.choice(music_files)
+            path = os.path.join(self.music_folder, chosen)
+            url = QUrl.fromLocalFile(path)
+            self.music_player.setMedia(QMediaContent(url))
+            self.music_player.play()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
