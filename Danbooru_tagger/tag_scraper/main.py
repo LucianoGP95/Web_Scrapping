@@ -87,5 +87,5 @@ class SettingsApp(BaseApp):
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = DownloaderApp(root, os.getcwd())
+    app = DownloaderApp(root, os.path.abspath("../scraped_tags"))
     root.mainloop()
