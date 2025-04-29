@@ -17,6 +17,7 @@ def download(urls, base_dir, db):
         "--download-archive", archive_dir,
         "--config", ".\\config\\config.json",
         "--write-metadata",
+        "--filter=rating=='r18'",
         url
         ]
         print(f"Download for starting: {url}")

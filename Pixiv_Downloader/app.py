@@ -94,7 +94,8 @@ class SettingsApp(BaseApp):
 
 if __name__ == "__main__":
     root_path = os.getcwd()
-    config_path = os.path.join(root_path, "config/config.json")
+    config_path = os.path.join(root_path, "config\\config.json")
+    print(config_path)
     with open(config_path, "r", encoding="utf-8") as f:
         config = json.load(f)
     base_dir = config["extractor"]["pixiv"]["base-directory"]
