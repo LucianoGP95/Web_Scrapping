@@ -1,0 +1,62 @@
+{
+	"extractor": {
+		"skip": false,
+		"sleep": 0,
+
+		"pixiv": {
+			"base-directory": "D:/1_P/1Art/new/pixiv",
+			"directory": ["{user[id]}_{user[account]}"],
+			"filename": "{id}_p{num}.{extension}",
+			"refresh-token": "",
+			"metadata": false,
+			"tags": ["original"],
+			"postprocessors": ["metadata-pixiv"]
+		},
+
+		"rule34": {
+			"base-directory": "D:/1_P/1Art/new/rule34",
+			"directory": ["{category}_{subcategory}"],
+			"filename": "{id}.{extension}",
+			"skip": true,
+			"sleep": 1,
+			"tags": [],
+			"exclude": [],
+			"metadata": false,
+			"postprocessors": ["metadata-rule34"]
+		},
+
+		"danbooru": {
+			"base-directory": "D:/1_P/1Art/new/danbooru",
+			"directory": ["{tag_string_artist}"],
+			"filename": "{id}.{extension}",
+			"username": null,    
+			"password": null,    
+			"metadata": false,
+			"ugoira": true,      
+			"tags": [],
+			"postprocessors": ["metadata-danbooru"]
+		}
+	},
+
+	"postprocessor": {
+		"metadata-pixiv": {
+			"name": "metadata",
+			"mode": "json",
+			"event": "post",
+			"filename": "{id}.json"
+		},
+		"metadata-rule34": {
+			"name": "metadata",
+			"mode": "json",
+			"event": "post",
+			"filename": "{id}.json"
+		},
+		"metadata-danbooru": {
+				"name": "metadata",
+				"mode": "json",
+				"event": "post",
+				"filename": "{id}.json"
+			}
+		}
+}
+
