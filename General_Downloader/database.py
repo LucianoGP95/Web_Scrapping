@@ -106,6 +106,7 @@ class SQLite_Handler:
                     print(f"    {row}")
         except Exception as e:
             raise Exception(f"Error while examining tables: {str(e)}")
+        return rows
 
     def rename_table(self, old_name: str, new_name: str, verbose=True):
         old_name = re.sub(r'\W', '_', old_name)  # To avoid illegal symbols

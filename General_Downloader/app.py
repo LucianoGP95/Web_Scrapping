@@ -57,7 +57,7 @@ class DownloadWorker(QThread):
         self.r18_only = False
         self.no_subfolders = False
         self.only_metadata = False
-        self.not_archive = False
+        self.skip_archive = False  # Renamed for clarity
 
     def cancel(self):
         self._cancelled = True
@@ -128,8 +128,8 @@ class DownloadWorker(QThread):
 
             if self.only_metadata:
                 command += ["--no-download"]
-            self.progress.emit(f"DEBUG: {self.not_archive}")
-            if not self.not_archive:
+            
+            if not self.skip_archive:
                 command += ["--download-archive", archive_dir]
 
             if self.r18_only:
@@ -166,7 +166,7 @@ class DownloadWorker(QThread):
                     self.finished.emit("Download cancelled.")
                     return
 
-                if stdout[0] == "#":
+                if stdout and stdout[0] == "#":
                     self.progress.emit(f"Warning: File already in database:")
 
                 for line in stdout.splitlines():
@@ -193,7 +193,7 @@ class AuthorsUpdate(QThread):
         self.r18_only = False
         self.no_subfolders = False
         self.only_metadata = False
-        self.not_archive = False
+        self.skip_archive = False  # Renamed for clarity
 
     def cancel(self):
         self._cancelled = True
@@ -253,7 +253,8 @@ class AuthorsUpdate(QThread):
             if self.only_metadata:
                 command += ["--no-download"]
 
-            if not self.not_archive:
+            # Only add the archive option if we're NOT skipping the archive
+            if not self.skip_archive:
                 command += ["--download-archive", archive_dir]
 
             if self.r18_only:
@@ -285,7 +286,7 @@ class AuthorsUpdate(QThread):
                     self.finished.emit("Download cancelled.")
                     return
 
-                if stdout[0] == "#":
+                if stdout and stdout[0] == "#":
                     self.progress.emit(f"Warning: File already in database:")
 
                 for line in stdout.splitlines():
@@ -370,7 +371,7 @@ class DownloaderApp(QWidget):
         self.thread.r18_only = self.r18_checkbox.isChecked()
         self.thread.no_subfolders = self.no_subfolders_checkbox.isChecked()
         self.thread.only_metadata = self.only_metadata_checkbox.isChecked()
-        self.thread.no_archive = self.no_archive_checkbox.isChecked()
+        self.thread.skip_archive = self.no_archive_checkbox.isChecked()  
         self.thread.progress.connect(self.output_log.append)
         self.thread.progress_percent.connect(self.progress_bar.setValue)
         self.thread.finished.connect(self.on_finished)
@@ -393,7 +394,7 @@ class DownloaderApp(QWidget):
         self.thread.r18_only = self.r18_checkbox.isChecked()
         self.thread.no_subfolders = self.no_subfolders_checkbox.isChecked()
         self.thread.only_metadata = self.only_metadata_checkbox.isChecked()
-        self.thread.no_archive = self.no_archive_checkbox.isChecked()
+        self.thread.skip_archive = self.no_archive_checkbox.isChecked()  
         self.thread.progress.connect(self.output_log.append)
         self.thread.progress_percent.connect(self.progress_bar.setValue)
         self.thread.finished.connect(self.on_finished)
