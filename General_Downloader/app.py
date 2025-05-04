@@ -187,7 +187,10 @@ class AuthorsUpdate(QThread):
         author_amount = len(urls)
         print(f"Updating {len(urls)} authors...")
         authors = [author for author in author_data.keys()]
-        [print(f"{author}  total tracking: {author_amount}") for author in authors]
+        self.progress.emit(f"Tracking authors:")
+        for author in authors:
+            self.progress.emit(f"   {author}")
+        self.finished.emit(f"Total tracking: {author_amount}")
 
         self.progress.emit(f"Found {len(urls)} URL(s). Starting download...")
 
