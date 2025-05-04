@@ -9,7 +9,7 @@ import keyboard
 from itertools import count
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton,
-    QLabel, QLineEdit, QTextEdit, QHBoxLayout, QProgressBar
+    QLabel, QLineEdit, QTextEdit, QHBoxLayout, QProgressBar, QCheckBox
 )
 from PySide6.QtCore import QThread, Signal
 
@@ -54,6 +54,10 @@ class DownloadWorker(QThread):
         self.base_dir = base_dir
         self._cancelled = False
         self.process = None
+        self.r18_only = False
+        self.no_subfolders = False
+        self.only_metadata = False
+        self.not_archive = False
 
     def cancel(self):
         self._cancelled = True
@@ -70,7 +74,10 @@ class DownloadWorker(QThread):
             "https://rule34.xxx",
             "https://www.pixiv.net/en/artworks",
             "https://www.pixiv.net/en/users",
-            "https://danbooru.donmai.us/posts"
+            "https://danbooru.donmai.us/posts",
+            "https://kemono.su/fanbox/user/",
+            "https://kemono.su/patreon/user/",
+            "https://gelbooru.com/index"
         ]
 
         urls = detect_urls(workflow, galleries)
@@ -80,7 +87,11 @@ class DownloadWorker(QThread):
 
         self.progress.emit(f"Found {len(urls)} URL(s). Starting download...")
 
-        config_path = r"D:\1_P\Web_Scraper\Pixiv_Downloader\config\config.json"
+        config_path = os.path.join(os.getcwd(), "config", "config.json")
+        if not os.path.exists(config_path):
+            self.progress.emit(f"Config file not found: {config_path}")
+            self.finished.emit("Configuration error")
+            return
         with open(config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
 
@@ -88,7 +99,9 @@ class DownloadWorker(QThread):
             "pixiv": {"key": "pixiv", "url_prefix": "https://www.pixiv.net/en/artworks"},
             "pixiv_authors": {"key": "pixiv", "url_prefix": "https://www.pixiv.net/en/users"},
             "rule34": {"key": "rule34", "url_prefix": "https://rule34.xxx"},
-            "danbooru": {"key": "danbooru", "url_prefix": "https://danbooru.donmai.us/posts"}
+            "danbooru": {"key": "danbooru", "url_prefix": "https://danbooru.donmai.us/posts"},
+            "kemono": {"key": "kemono", "url_prefix": "https://kemono.party/"},
+            "gelbooru": {"key": "gelbooru", "url_prefix": "https://gelbooru.com/index.php?page=post&s=view&id="}
         }
 
         total = len(urls)
@@ -109,11 +122,30 @@ class DownloadWorker(QThread):
             command = [
                 "gallery-dl",
                 "-d", base_dir_local,
-                "--download-archive", archive_dir,
                 "--config", ".\\config\\config.json",
                 "--write-metadata",
-                url
             ]
+
+            if self.only_metadata:
+                command += ["--no-download"]
+            self.progress.emit(f"DEBUG: {self.not_archive}")
+            if not self.not_archive:
+                command += ["--download-archive", archive_dir]
+
+            if self.r18_only:
+                if source == "pixiv":
+                    command += ["--filter", "'R-18' in tags or 'R-18G' in tags"]
+                elif source in ("danbooru", "rule34"):
+                    command += ["--filter", "rating == 'explicit' or rating == 'e'"]
+                elif source == "kemono":
+                    command += ["--filter", "'R-18' in tags or 'explicit' in tags"]
+                elif source == "gelbooru":
+                    command += ["--filter", "rating == 'e' or rating == 'explicit'"]
+
+            if self.no_subfolders:
+                command += ["--directory", ""]
+
+            command.append(url)
             self.progress.emit(f"Downloading: {url}")
             try:
                 self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -158,6 +190,10 @@ class AuthorsUpdate(QThread):
         self.base_dir = base_dir
         self._cancelled = False
         self.process = None
+        self.r18_only = False
+        self.no_subfolders = False
+        self.only_metadata = False
+        self.not_archive = False
 
     def cancel(self):
         self._cancelled = True
@@ -194,7 +230,7 @@ class AuthorsUpdate(QThread):
 
         self.progress.emit(f"Found {len(urls)} URL(s). Starting download...")
 
-        config_path = r"D:\1_P\Web_Scraper\Pixiv_Downloader\config\config.json"
+        config_path = os.path.join(os.getcwd(), "config", "config.json")
         with open(config_path, "r", encoding="utf-8") as f:
             config = json.load(f)
             total = len(urls)
@@ -210,11 +246,25 @@ class AuthorsUpdate(QThread):
             command = [
                 "gallery-dl",
                 "-d", base_dir_local,
-                "--download-archive", archive_dir,
                 "--config", ".\\config\\config.json",
                 "--write-metadata",
-                url
             ]
+
+            if self.only_metadata:
+                command += ["--no-download"]
+
+            if not self.not_archive:
+                command += ["--download-archive", archive_dir]
+
+            if self.r18_only:
+                command += ["--filter", "'R-18' in tags or 'R-18G' in tags"]
+
+            if self.no_subfolders:
+                command += ["--directory", ""]
+
+            # URL must go last
+            command.append(url)
+
             self.progress.emit(f"Downloading: {url}")
             try:
                 self.process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -264,7 +314,7 @@ class DownloaderApp(QWidget):
         layout.addWidget(self.dir_input)
 
         btn_layout = QHBoxLayout()
-        self.start_button = QPushButton("Start Download")
+        self.start_button = QPushButton("Get opened tabs")
         self.start_button.clicked.connect(self.start_download)
 
         self.cancel_button = QPushButton("Cancel")
@@ -276,13 +326,29 @@ class DownloaderApp(QWidget):
         self.author_button.clicked.connect(self.author_download)
 
         btn_layout.addWidget(self.start_button)
-        btn_layout.addWidget(self.cancel_button)
         btn_layout.addWidget(self.author_button)
+        btn_layout.addWidget(self.cancel_button)
         layout.addLayout(btn_layout)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
         layout.addWidget(self.progress_bar)
+
+        check_layout = QHBoxLayout()
+        self.r18_checkbox = QCheckBox("Only R-18")
+        self.r18_checkbox.setChecked(False)
+        self.no_subfolders_checkbox = QCheckBox("No subfolders")
+        self.no_subfolders_checkbox.setChecked(False)
+        self.only_metadata_checkbox = QCheckBox("Only metadata")
+        self.only_metadata_checkbox.setChecked(False)
+        self.no_archive_checkbox = QCheckBox("Don't archive")
+        self.no_archive_checkbox.setChecked(False)
+
+        check_layout.addWidget(self.r18_checkbox)
+        check_layout.addWidget(self.no_subfolders_checkbox)
+        check_layout.addWidget(self.only_metadata_checkbox)
+        check_layout.addWidget(self.no_archive_checkbox)
+        layout.addLayout(check_layout)
 
         self.output_log = QTextEdit()
         self.output_log.setReadOnly(True)
@@ -297,9 +363,14 @@ class DownloaderApp(QWidget):
         base_dir = self.dir_input.text().strip() or None
         self.output_log.append("Scanning for gallery URLs...")
         self.start_button.setEnabled(False)
+        self.author_button.setEnabled(False)
         self.cancel_button.setEnabled(True)
 
         self.thread = DownloadWorker(base_dir)
+        self.thread.r18_only = self.r18_checkbox.isChecked()
+        self.thread.no_subfolders = self.no_subfolders_checkbox.isChecked()
+        self.thread.only_metadata = self.only_metadata_checkbox.isChecked()
+        self.thread.no_archive = self.no_archive_checkbox.isChecked()
         self.thread.progress.connect(self.output_log.append)
         self.thread.progress_percent.connect(self.progress_bar.setValue)
         self.thread.finished.connect(self.on_finished)
@@ -315,9 +386,14 @@ class DownloaderApp(QWidget):
         base_dir = self.dir_input.text().strip() or None
         self.output_log.append("Scanning for listed author URLs...")
         self.start_button.setEnabled(False)
+        self.author_button.setEnabled(False)
         self.cancel_button.setEnabled(True)
 
         self.thread = AuthorsUpdate(base_dir)
+        self.thread.r18_only = self.r18_checkbox.isChecked()
+        self.thread.no_subfolders = self.no_subfolders_checkbox.isChecked()
+        self.thread.only_metadata = self.only_metadata_checkbox.isChecked()
+        self.thread.no_archive = self.no_archive_checkbox.isChecked()
         self.thread.progress.connect(self.output_log.append)
         self.thread.progress_percent.connect(self.progress_bar.setValue)
         self.thread.finished.connect(self.on_finished)
@@ -326,6 +402,7 @@ class DownloaderApp(QWidget):
     def on_finished(self, message):
         self.output_log.append(message)
         self.start_button.setEnabled(True)
+        self.author_button.setEnabled(True)
         self.cancel_button.setEnabled(False)
         self.progress_bar.setValue(0)
         self.thread = None
