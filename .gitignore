@@ -161,3 +161,4 @@ cython_debug/
 
 .downloader
 test.py
+*.json
