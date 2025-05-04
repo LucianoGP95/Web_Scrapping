@@ -1,6 +1,5 @@
-from sqlite_handler import SQLite_Handler
+from database import JSONhandler
 
-db = SQLite_Handler(r"D:\1_P\1Art\new\archive.db")
-db.consult_tables()
-db.examine_table("archive")
+db = JSONhandler(r"D:\1_P\Web_Scraper\General_Downloader\test.db")
 db.close_conn()
+

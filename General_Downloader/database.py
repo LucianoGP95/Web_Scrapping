@@ -233,10 +233,9 @@ class SQLite_Handler:
             raise Exception(f"Unsupported input format: Try str, list, tuple, set.")
 
 class JSONhandler(SQLite_Handler):
-    def __init__(db_name, db_folder_path, rel_path):
+    def __init__(self, db_name, db_folder_path=None, rel_path=False):
         """Initialize the JSONhandler with the database connection."""
-        # Call the parent class constructor (Database's __init__)
-        super().__init__(db_name, db_folder_path=db_folder_path, rel_path=rel_path)
+        super().__init__(db_name, db_folder_path, rel_path)
 
     def _sanitize_table_name(self, table_name):
         """Sanitize the table name to ensure it follows SQLite's naming rules."""
