@@ -1,4 +1,5 @@
 import os, json, time, re, sys, shutil, sqlite3
+import hashlib
 # Secondary requirements: pip install openpyxl
 ################################################################################
 class SQLite_Handler:
@@ -235,89 +236,162 @@ class SQLite_Handler:
 
 class JSONhandler(SQLite_Handler):
     def __init__(self, db_name, db_folder_path=None, rel_path=False):
-        """Initialize the JSONhandler with the database connection."""
         super().__init__(db_name, db_folder_path, rel_path)
+        self.init_db(self.db_path)
+        self.counter = 0
 
     def _sanitize_table_name(self, table_name):
-        """Sanitize the table name to ensure it follows SQLite's naming rules."""
-        # Replace special characters with underscores
         table_name = re.sub(r'\W', '_', table_name)
-        # If the name starts with a number, prefix it with an underscore
         if table_name[0].isdigit():
             table_name = f"_{table_name}"
         return table_name
 
-    def _create_table_dynamic(self, table_name, metadata):
-        table_name = self._sanitize_table_name(table_name)
+    @staticmethod
+    def init_db(db_path):
         try:
-            # Ensure table exists
-            self.cursor.execute(f'CREATE TABLE IF NOT EXISTS "{table_name}" (filename TEXT);')
+            with sqlite3.connect(db_path) as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS tagged_archive (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        filename TEXT,
+                        rating TEXT,
+                        character_tags TEXT,
+                        author_tags TEXT,
+                        general_tags TEXT,
+                        source TEXT,
+                        model TEXT,
+                        score REAL,
+                        SHA256 TEXT UNIQUE
+                    )
+                """)
+                conn.commit()
+                print(f"✅ Database initialized: {db_path}")
+        except Exception as e:
+            print(f"❌ Failed to init {db_path}: {e}")
 
-            # Get existing columns
-            self.cursor.execute(f'PRAGMA table_info("{table_name}")')
-            existing_columns = {row[1] for row in self.cursor.fetchall()}
-
-            # Add missing columns
-            for key, value in metadata.items():
-                if key not in existing_columns:
-                    if isinstance(value, int):
-                        dtype = "INTEGER"
-                    elif isinstance(value, float):
-                        dtype = "REAL"
-                    else:
-                        dtype = "TEXT"
-                    try:
-                        self.cursor.execute(f'ALTER TABLE "{table_name}" ADD COLUMN "{key}" {dtype};')
-                    except sqlite3.Error as e:
-                        print(f"Failed to add column {key}: {e}")
-
-            self.conn.commit()
-        except sqlite3.Error as e:
-            print(f"Error updating table {table_name}: {e}")
-
-    def _insert_metadata_dynamic(self, table_name, metadata):
-        table_name = self._sanitize_table_name(table_name)
-        # Convert lists/dicts to strings
-        for key in metadata:
-            if isinstance(metadata[key], (list, dict)):
-                metadata[key] = json.dumps(metadata[key], ensure_ascii=False)
-
-        keys = list(metadata.keys())
-        placeholders = ", ".join(["?" for _ in keys])
-        column_names = ", ".join([f'"{k}"' for k in keys])
-        values = [metadata[k] for k in keys]
-
+    @staticmethod
+    def insert_to_db(db_path, filename, rating, character_tags, general_tags, sha256, 
+                     author_tags=None, source=None, model=None, score=None):
+        character_tags = ", ".join(character_tags) if isinstance(character_tags, (list, tuple)) else character_tags
+        author_tags = ", ".join(author_tags) if isinstance(author_tags, (list, tuple)) else author_tags
+        general_tags = ", ".join(general_tags) if isinstance(general_tags, (list, tuple)) else general_tags
+        
         try:
-            self.cursor.execute(
-                f'INSERT OR IGNORE INTO "{table_name}" ({column_names}) VALUES ({placeholders});',
-                values
-            )
-            self.conn.commit()
-        except sqlite3.Error as e:
-            print(f"Error inserting into table {table_name}: {e}")
+            with sqlite3.connect(db_path) as conn:
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT OR IGNORE INTO tagged_archive 
+                    (filename, rating, character_tags, author_tags, general_tags, source, model, score, SHA256)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    filename,
+                    rating if rating else "",
+                    character_tags,
+                    author_tags if author_tags else "",
+                    general_tags,
+                    source if source else "",
+                    model if model else "",
+                    score,
+                    sha256,
+                ))
+                conn.commit()
+                print(f"💾 Saved {filename} to: {db_path}")
+        except Exception as e:
+            print(f"❌ Failed to save to {db_path}: {e}")
 
-    def process_jsons(self, folder_path):
-            """Process all JSON files in a directory and insert their metadata into the database."""
-            for root, _, files in os.walk(folder_path):
-                for file in files:
-                    if file.endswith(".json"):
-                        json_path = os.path.join(root, file)
-                        parent_folder = os.path.basename(root)  # Extract the parent folder as the table name
-                        
-                        # Read and insert the metadata from the JSON file
-                        with open(json_path, 'r', encoding='utf-8') as f:
-                            data = json.load(f)
+    @staticmethod
+    def compute_sha256(filepath):
+        sha256_hash = hashlib.sha256()
+        try:
+            with open(filepath, "rb") as f:
+                for byte_block in iter(lambda: f.read(4096), b""):
+                    sha256_hash.update(byte_block)
+            return sha256_hash.hexdigest()
+        except Exception as e:
+            print(f"Error computing SHA256 for {filepath}: {e}")
+            return "unknown"
 
-                        # Use all data as metadata
-                        data["filename"] = file.split(".")[0]
-                        if isinstance(data.get("tags"), list):
-                            data["tags"] = ";".join(data["tags"])
+    def detect_source(self, data):
+        if data.get("category") == "pixiv":
+            return "pixiv"
+        if "illust_ai_type" in data and "x_restrict" in data:
+            return "pixiv"
+        if data.get("url", "").startswith("https://i.pximg.net"):
+            return "pixiv"
+        return "unknown"
 
-                        self._create_table_dynamic(parent_folder, data)
-                        self._insert_metadata_dynamic(parent_folder, data)
-                        
-                        # Optionally, delete the JSON file after processing it
-                        os.remove(json_path)
+    def parse_pixiv(self, data, fallback_hash=None):
+        filename = data.get("filename", "unknown")
+        rating = data.get("rating") or str(data.get("x_restrict", ""))
+        author_name = data.get("user", {}).get("name", "")
+        score = data.get("total_bookmarks", 0)
+        sha256 = data.get("sha256") or fallback_hash or "unknown"
+
+        return {
+            "filename": filename,
+            "rating": rating,
+            "character_tags": "",
+            "general_tags": "",
+            "author_tags": author_name,
+            "source": "pixiv",
+            "model": "",
+            "score": score,
+            "sha256": sha256
+        }
+
+    def batch_process_jsons(self, folder_path):
+        # First pass: count all valid JSONs
+        all_json_files = []
+        for root, _, files in os.walk(folder_path):
+            for file in files:
+                if file.endswith(".json") and re.search(r'_p\d+\.(jpg|png|jpeg|webp)\.json$', file):
+                    all_json_files.append(os.path.join(root, file))
+        
+        total = len(all_json_files)
+        print(f"📦 Found {total} JSON files to process")
+    # Second pass: process them
+        for i, json_path in enumerate(all_json_files, start=1):
+            with open(json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            source = self.detect_source(data)
+            if source == "pixiv":
+                # Compute SHA256 if image exists
+                image_base = os.path.splitext(json_path)[0]
+                image_path = next((image_base + ext for ext in [".jpg", ".png", ".jpeg", ".webp"] if os.path.isfile(image_base + ext)), None)
+                sha256 = self.compute_sha256(image_path) if image_path else self.fallback_hash(json_path)
+                data["sha256"] = sha256
+                extracted = self.parse_pixiv(data, fallback_hash=sha256)
+
+                extracted = self.parse_pixiv(data)
+                self.insert_to_db(
+                    self.db_path,
+                    extracted["filename"],
+                    extracted["rating"],
+                    extracted["character_tags"],
+                    extracted["general_tags"],
+                    extracted["sha256"],
+                    extracted["author_tags"],
+                    extracted["source"],
+                    extracted["model"],
+                    extracted["score"],
+                )
+            else:
+                print(f"⚠️ Unsupported source: {source} in {json_path}")
+            
+            if i % 10 == 0 or i == total:
+                print(f"📄 Progress: {i}/{total}")
+            # os.remove(json_path)
+
+    def fallback_hash(self, path):
+        """Generate a fallback SHA256 from the path."""
+        try:
+            name = os.path.basename(path)
+            return hashlib.sha256(name.encode()).hexdigest()
+        except Exception as e:
+            print(f"⚠️ Failed to compute fallback hash for {path}: {e}")
+            return "unknown"
 
     def is_url_downloaded(self, id):
             """Check if the URL has already been downloaded across all tables."""
@@ -379,7 +453,10 @@ class JSONhandler(SQLite_Handler):
 
 
 if __name__ == "__main__":
-    handler = JSONhandler("pixiv.db", rel_path="./database")
-    handler.process_jsons(r"D:\1_P\Web_Scraper\Pixiv_Downloader")  # <- asegúrate de pasar la ruta correcta
+    handler = JSONhandler(r"D:\1_P\1Art\5_AI\0_Database\json_test.db")
+    #handler.clear_database()
+    #handler.batch_process_jsons(r"D:\1_P\1Art\5_AI\Followed_authors")
     handler.consult_tables()
-    handler.examine_table("_102818725_user_xkjh3858")
+    handler.examine_table("tagged_archive")
+    handler.close_conn()
+    #handler.examine_table("_102818725_user_xkjh3858")

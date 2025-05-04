@@ -37,10 +37,10 @@
 			"postprocessors": ["metadata-danbooru"]
 		},
 
-		"kemono": {
+		"kemonoparty": {
 			"base-directory": "D:/1_P/1Art/new/kemono",
-			"directory": ["{service}/{user}"],
-			"filename": "{id}.{extension}",
+			"directory": ["{id}_{title}"],
+			"filename": "{id}_{name}",
 			"sleep": 1,
 			"metadata": false,
 			"postprocessors": ["metadata-kemono"]
