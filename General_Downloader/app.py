@@ -178,18 +178,16 @@ class AuthorsUpdate(QThread):
             self.finished.emit("Author update failed.")
             return
 
-        author_urls = [v for v in author_data.values()]
-        if not author_urls:
+        urls = [url for url in author_data.values()]
+        if not urls:
             self.progress.emit("No valid author URLs.")
             self.finished.emit("Aborting.")
             return
 
-        author_amount = len(author_urls)
-        print(f"Updating {len(author_urls)} authors...")
-        authors = [author for author in author_urls.keys()]
+        author_amount = len(urls)
+        print(f"Updating {len(urls)} authors...")
+        authors = [author for author in author_data.keys()]
         [print(f"{author}  total tracking: {author_amount}") for author in authors]
-
-        urls = [url for url in author_urls.values()]
 
         self.progress.emit(f"Found {len(urls)} URL(s). Starting download...")
 
