@@ -6,9 +6,14 @@ import requests
 def get_tags_raw(url, output_file, category_selection: str, postcount_filter: str ="100", rewrite_existent: bool =True):
     output_file_path = output_file
     category_dict = {
-            "Author":[0],
-            "Meta": [5]
-        }
+        "General": [0],
+        "Artist": [1],
+        "Copyright": [3],
+        "Character": [4],
+        "Meta": [5],
+        "Author": [0],  # Optional alias
+        "All": [0, 1, 3, 4, 5]
+    }
     try:
         category_filter = category_dict.get(category_selection)
     except Exception as e:
@@ -68,9 +73,15 @@ def get_tags_refined(base_file, output_file, rewrite_existent=False):
         header = next(reader)
         name_index = header.index("name")
 
-        writer.writerow(["name"])
-        for row in reader:
-            writer.writerow([row[name_index]])
+        # Read all names into a list
+        tag_names = [row[name_index] for row in reader]
+
+        # Sort the tag names
+        tag_names.sort()
+
+        # Write header and sorted tags
+        for name in tag_names:
+            writer.writerow([name])
 
     print(f'Data has been refined and written to {output_file}')
 
