@@ -5,6 +5,18 @@ import time
 BASE_URL = 'https://api.rule34.xxx/index.php?page=dapi&s=tag&q=index'
 MIN_COUNT = 20
 
+def keep_first_term_only(file_path):
+    with open(file_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+
+    updated_lines = []
+    for line in lines:
+        first_term = line.strip().split()[0]
+        updated_lines.append(first_term + '\n')
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.writelines(updated_lines)
+
 def get_artist_tags(min_count=1, output_file=None):
     page = 0
     total_collected = 0
@@ -71,6 +83,7 @@ def get_artist_tags(min_count=1, output_file=None):
 
 # Ejecutar y guardar en archivo:
 artists = get_artist_tags(min_count=MIN_COUNT, output_file='rule34_artist_tags.csv')
+keep_first_term_only('./rule34_artist_tags.csv')
 
 # Imprimir resumen:
 print(f"\nFound {len(artists)} artist tags with >= {MIN_COUNT} posts:")
