@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET
 import time
 
 BASE_URL = 'https://api.rule34.xxx/index.php?page=dapi&s=tag&q=index'
-MIN_COUNT = 20
+MIN_COUNT = 1
 
 def keep_first_term_only(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
