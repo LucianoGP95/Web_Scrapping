@@ -1,25 +1,31 @@
-from pydub import AudioSegment
 import os
+from pydub import AudioSegment
 
-# === Configuration ===
-input_folder = os.path.abspath("./input")
-output_folder = os.path.abspath("./output")
-output_filepath = os.path.join(output_folder, "final_audio.mp3")  # You can use .wav, .ogg, etc.
+class AudioPostProcessor:
+    def __init__(self, input_folder, output_filepath, audio_extensions=None):
+        self.input_folder = input_folder
+        self.output_filepath = output_filepath
+        self.audio_extensions = audio_extensions or (".mp3", ".wav", ".ogg", ".flac", ".m4a")
 
-# === Supported audio extensions ===
-audio_extensions = (".mp3", ".wav", ".ogg", ".flac", ".m4a")
+    def is_audio_file(self, filename):
+        return filename.lower().endswith(self.audio_extensions)
 
-# === Load and join audio files ===
-combined = AudioSegment.empty()
+    def join_audio_files(self, audio_files):
+        combined = AudioSegment.empty()
+        for filename in sorted(os.listdir(self.input_folder)):
+            if self.is_audio_file(filename) and os.path.basename(filename) in audio_files:
+                file_path = os.path.join(self.input_folder, filename)
+                print(f"Adding: {file_path}")
+                audio = AudioSegment.from_file(file_path)
+                combined += audio
+        return combined
 
-# Sort files to join in alphabetical order
-for filename in sorted(os.listdir(input_folder)):
-    if filename.lower().endswith(audio_extensions):
-        file_path = os.path.join(input_folder, filename)
-        print(f"Adding: {file_path}")
-        audio = AudioSegment.from_file(file_path)
-        combined += audio
+    def export(self, audio_segment):
+        format_ = self.output_filepath.split('.')[-1]
+        audio_segment.export(self.output_filepath, format=format_)
+        print(f"\n✅ Done! Output saved as: {self.output_filepath}")
 
-# === Export the final audio ===
-combined.export(output_filepath, format=output_filepath.split('.')[-1])
-print(f"\n✅ Done! Output saved as: {output_filepath}")
+    def process(self, audio_files):
+        combined_audio = self.join_audio_files(audio_files)
+        self.export(combined_audio)
+
