@@ -69,7 +69,7 @@ class BaseWindow(QMainWindow):
         # Default paths
         self.default_audio_folder = os.path.join(os.getcwd(), "downloads", "audio")
         self.default_video_folder = os.path.join(os.getcwd(), "downloads", "video")
-        self.info_path = os.path.join(os.getcwd(), "config", "help.json")
+        self.info_path = os.path.join(os.getcwd(), "config", "")
         
         # Create directories if they don't exist
         os.makedirs(self.default_audio_folder, exist_ok=True)
