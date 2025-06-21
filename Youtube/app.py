@@ -4,7 +4,7 @@ import sys
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                 QHBoxLayout, QLabel, QLineEdit, QPushButton, 
                                 QRadioButton, QMessageBox, QFileDialog, QButtonGroup,
-                                QComboBox, QFrame, QProgressBar)
+                                QComboBox, QFrame, QProgressBar, QDialog)
 from PySide6.QtCore import Qt, QThread, Signal, QEventLoop
 from core_logic import Downloader
 
@@ -14,7 +14,7 @@ class DownloadThread(QThread):
     progress_update = Signal(str)
     download_complete = Signal(bool, str)
     
-    def __init__(self, url, output_folder, download_type, normalize_audio, ask_download_list):
+    def __init__(self, url, output_folder, download_type, normalize_audio, ask_download_list, download_playlist=True):
         super().__init__()
         self.url = url
         self.output_folder = output_folder
@@ -22,14 +22,17 @@ class DownloadThread(QThread):
         self.normalize_audio = normalize_audio
         self.ask_download_list = ask_download_list
         self.is_playlist = "list=" in url
-        self.download_playlist = True  # Default value
+        self.download_playlist = download_playlist
     
     def run(self):
         try:
             downloader = Downloader(self.url, self.output_folder)
             
             # Set progress callback
-            downloader.set_progress_callback(lambda percent: self.progress_update.emit(percent))
+            def progress_callback(percent):
+                self.progress_update.emit(str(percent))
+            
+            downloader.set_progress_callback(progress_callback)
             
             # Configure options based on download type
             if self.download_type == "audio":
@@ -69,18 +72,18 @@ class BaseWindow(QMainWindow):
         # Default paths
         self.default_audio_folder = os.path.join(os.getcwd(), "downloads", "audio")
         self.default_video_folder = os.path.join(os.getcwd(), "downloads", "video")
-        self.info_path = os.path.join(os.getcwd(), "config", "")
+        self.info_path = os.path.join(os.getcwd(), "config", "help.json")  # Fixed path
         
         # Create directories if they don't exist
         os.makedirs(self.default_audio_folder, exist_ok=True)
         os.makedirs(self.default_video_folder, exist_ok=True)
+        os.makedirs(os.path.dirname(self.info_path), exist_ok=True)  # Create config dir
         
         # Load app version from json file
         try:
-            os.path.join(os.getcwd(), os.path.relpath("./config/help.json"))
             with open(self.info_path, "r") as config_file:
                 config_data = json.load(config_file)
-                self.APP_VERSION = config_data["version"]
+                self.APP_VERSION = config_data.get("version", "1.0.0")  # Use .get() for safety
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
             self.APP_VERSION = "1.0.0"  # Default version if file not found
     
@@ -109,6 +112,7 @@ class MainWindow(BaseWindow):
             self.normalize_audio = settings.get('normalize_audio', True)
         
         self.output_folder = self.default_audio_folder  # Default to audio folder
+        self.download_thread = None  # Initialize download thread reference
         
         self.init_ui()
     
@@ -226,15 +230,23 @@ class MainWindow(BaseWindow):
     def update_progress(self, progress_str):
         """Update the progress bar and label"""
         try:
-            # Extract percentage from string like '87.5%'
-            progress_str = progress_str.replace('%', '').strip()
-            progress_val = float(progress_str)
+            # Handle different progress string formats
+            if isinstance(progress_str, str):
+                # Extract percentage from string like '87.5%' or just '87.5'
+                clean_progress = progress_str.replace('%', '').strip()
+                progress_val = float(clean_progress)
+            else:
+                progress_val = float(progress_str)
+            
+            # Clamp progress between 0 and 100
+            progress_val = max(0, min(100, progress_val))
+            
             self.progress_bar.setValue(int(progress_val))
-            self.progress_label.setText(f"Downloading: {progress_str}%")
-        except (ValueError, AttributeError):
+            self.progress_label.setText(f"Downloading: {progress_val:.1f}%")
+        except (ValueError, AttributeError, TypeError):
             # If the progress string can't be converted to a number,
             # just show the message
-            self.progress_label.setText(f"Downloading...")
+            self.progress_label.setText("Downloading...")
     
     def download_finished(self, success, message):
         """Handle download completion"""
@@ -243,18 +255,21 @@ class MainWindow(BaseWindow):
             self.progress_label.setText("Download complete!")
             
             # Show only the first few lines if message is very long
-            if len(message.splitlines()) > 10:
+            if isinstance(message, str) and len(message.splitlines()) > 10:
                 short_message = "\n".join(message.splitlines()[:10])
                 short_message += f"\n\n... and {len(message.splitlines()) - 10} more items"
                 self.show_message("Success", short_message)
             else:
-                self.show_message("Success", message)
+                self.show_message("Success", str(message))
         else:
             self.progress_label.setText("Download failed!")
-            self.show_message("Error", message, QMessageBox.Critical)
+            self.show_message("Error", str(message), QMessageBox.Critical)
         
-        # Re-enable the download button
+        # Re-enable the download button and clean up thread
         self.download_button.setEnabled(True)
+        if self.download_thread:
+            self.download_thread.deleteLater()
+            self.download_thread = None
     
     def start_download(self):
         """Start the download process"""
@@ -271,7 +286,11 @@ class MainWindow(BaseWindow):
             return
         
         # Ensure output folder exists
-        os.makedirs(output_folder, exist_ok=True)
+        try:
+            os.makedirs(output_folder, exist_ok=True)
+        except OSError as e:
+            self.show_message("Error", f"Cannot create output folder: {str(e)}", QMessageBox.Critical)
+            return
         
         # Check if it's a playlist and confirm if needed
         is_playlist = "list=" in url
@@ -295,15 +314,21 @@ class MainWindow(BaseWindow):
         self.progress_bar.setValue(0)
         self.progress_label.setText("Starting download...")
         
+        # Clean up previous thread if it exists
+        if self.download_thread:
+            self.download_thread.quit()
+            self.download_thread.wait()
+            self.download_thread.deleteLater()
+        
         # Create and start download thread
         self.download_thread = DownloadThread(
             url, 
             output_folder, 
             download_type, 
             self.normalize_audio, 
-            self.ask_download_list
+            self.ask_download_list,
+            download_playlist
         )
-        self.download_thread.download_playlist = download_playlist
         self.download_thread.progress_update.connect(self.update_progress)
         self.download_thread.download_complete.connect(self.download_finished)
         self.download_thread.start()
@@ -315,13 +340,21 @@ class MainWindow(BaseWindow):
             # Update settings if dialog was accepted
             self.ask_download_list = settings_dialog.ask_download_list
             self.normalize_audio = settings_dialog.normalize_audio
+    
+    def closeEvent(self, event):
+        """Handle application close event"""
+        # Stop download thread if running
+        if self.download_thread and self.download_thread.isRunning():
+            self.download_thread.quit()
+            self.download_thread.wait(3000)  # Wait up to 3 seconds
+        event.accept()
 
 
-class SettingsWindow(QMainWindow):
+class SettingsWindow(QDialog):  # Changed from QMainWindow to QDialog
     """Settings window dialog"""
     
-    def __init__(self, ask_download_list, normalize_audio):
-        super().__init__(None, Qt.Dialog)
+    def __init__(self, ask_download_list, normalize_audio, parent=None):
+        super().__init__(parent)
         
         # Store current settings
         self.ask_download_list = ask_download_list
@@ -330,14 +363,14 @@ class SettingsWindow(QMainWindow):
         # Set window properties
         self.setWindowTitle("Settings")
         self.setMinimumSize(400, 300)
+        self.setModal(True)  # Make dialog modal
         
         self.init_ui()
     
     def init_ui(self):
         """Initialize the user interface"""
-        # Create central widget and layout
-        central_widget = QWidget()
-        main_layout = QVBoxLayout(central_widget)
+        # Create main layout
+        main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 20, 20, 20)
         main_layout.setSpacing(15)
         
@@ -386,9 +419,6 @@ class SettingsWindow(QMainWindow):
         main_layout.addWidget(normalize_explanation)
         main_layout.addStretch()
         main_layout.addLayout(button_layout)
-        
-        # Set central widget
-        self.setCentralWidget(central_widget)
     
     def save_settings(self):
         """Save settings and close dialog"""
@@ -405,26 +435,6 @@ class SettingsWindow(QMainWindow):
         )
         
         self.accept()
-    
-    def exec(self):
-        """Show settings window modally and return result"""
-        self.result = None
-        self.setWindowModality(Qt.ApplicationModal)
-        self.show()
-        loop = QEventLoop()
-        self.destroyed.connect(loop.quit)
-        loop.exec()
-        return self.result
-
-    def accept(self):
-        """Close the window and return accepted state"""
-        self.result = True
-        self.close()
-
-    def reject(self):
-        """Close the window and return rejected state"""
-        self.result = False
-        self.close()
 
 
 if __name__ == "__main__":

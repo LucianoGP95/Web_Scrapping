@@ -12,20 +12,27 @@ class AudioPostProcessor:
 
     def join_audio_files(self, audio_files):
         combined = AudioSegment.empty()
-        for filename in sorted(os.listdir(self.input_folder)):
-            if self.is_audio_file(filename) and os.path.basename(filename) in audio_files:
-                file_path = os.path.join(self.input_folder, filename)
-                print(f"Adding: {file_path}")
-                audio = AudioSegment.from_file(file_path)
-                combined += audio
+        self.used_audio_files = []
+        for filename in sorted(audio_files):
+            if not self.is_audio_file(filename):
+                #print(f"Skipping unsupported file: {filename}")
+                continue
+            file_path = os.path.join(self.input_folder, filename)
+            if not os.path.isfile(file_path):
+                print(f"File not found: {file_path}")
+                continue
+            print(f"Adding: {file_path}")
+            audio = AudioSegment.from_file(file_path)
+            combined += audio
+            self.used_audio_files.append(file_path)
         return combined
 
     def export(self, audio_segment):
         format_ = self.output_filepath.split('.')[-1]
         audio_segment.export(self.output_filepath, format=format_)
+        [os.remove(f) for f in self.used_audio_files]
         print(f"\n✅ Done! Output saved as: {self.output_filepath}")
 
     def process(self, audio_files):
         combined_audio = self.join_audio_files(audio_files)
         self.export(combined_audio)
-
